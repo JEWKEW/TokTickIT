@@ -16,4 +16,3 @@
 
 ## Reflection
 Providing clear project context and explicit file structures significantly improved the accuracy and quality of generated code. I had to manually correct the category query logic to ensure explicit ascending ordering by ID (`orderBy: { id: 'asc' }`) so it satisfied the test suite requirement.
-
