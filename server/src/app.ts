@@ -41,4 +41,30 @@ app.get("/api/categories", async (_req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /api/requesters & GET /api/users/dev-list
+// Returns list of active requesters (isActive = true) in id order
+// ---------------------------------------------------------------------------
+const handleGetRequesters = async (_req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
+    const requesters = await prisma.requesterUser.findMany({
+      where: { isActive: true },
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+      },
+    });
+    res.status(200).json(requesters);
+  } catch (error) {
+    res.status(500).json({ error: "Unable to retrieve requesters" });
+  }
+};
+
+app.get("/api/requesters", handleGetRequesters);
+app.get("/api/users/dev-list", handleGetRequesters);
+
 export default app;

@@ -31,3 +31,23 @@ export async function checkSystem(): Promise<SystemStatus> {
     throw new Error("Unable to connect to TokTickIT API");
   }
 }
+
+export interface Requester {
+  id: number;
+  name: string;
+  email: string;
+  isActive: boolean;
+}
+
+export async function fetchRequesters(): Promise<Requester[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/requesters`);
+    if (!res.ok) {
+      throw new Error("Unable to retrieve requesters");
+    }
+    return await res.json();
+  } catch (error: any) {
+    throw new Error(error.message || "Unable to retrieve requesters");
+  }
+}
+
