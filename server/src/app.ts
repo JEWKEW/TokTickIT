@@ -133,6 +133,155 @@ app.get("/api/requesters", handleGetRequesters);
 app.get("/api/users/dev-list", handleGetRequesters);
 
 // ---------------------------------------------------------------------------
+// ISSUE-05: GET /api/tickets & GET /api/tickets/my
+// ---------------------------------------------------------------------------
+const handleGetTickets = async (req: Request, res: Response) => {
+  try {
+    const rawUserId = req.headers["x-user-id"];
+    const userId = parseInt(String(rawUserId), 10);
+
+    if (isNaN(userId)) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing or invalid x-user-id header",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const requester = await prisma.requesterUser.findUnique({
+      where: { id: userId },
+    });
+
+    if (!requester || !requester.isActive) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Requester not found or inactive",
+        },
+      });
+    }
+
+    const search = req.query.search ? String(req.query.search).trim() : "";
+    const categoryId = req.query.categoryId ? parseInt(String(req.query.categoryId), 10) : undefined;
+    const priority = req.query.priority ? String(req.query.priority).trim() : "";
+    const status = req.query.status ? String(req.query.status).trim() : "";
+
+    const rawSort = String(req.query.sort || req.query.sortBy || "createdAt");
+    const rawOrder = String(req.query.order || req.query.sortOrder || "desc").toLowerCase();
+    const order: "asc" | "desc" = rawOrder === "asc" ? "asc" : "desc";
+
+    const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+    const rawLimit = parseInt(String(req.query.limit || "10"), 10) || 10;
+    const limit = Math.min(50, Math.max(1, rawLimit));
+
+    const whereClause: any = {
+      requesterId: userId,
+    };
+
+    if (categoryId !== undefined && !isNaN(categoryId)) {
+      whereClause.categoryId = categoryId;
+    }
+
+    if (priority && priority.toLowerCase() !== "all") {
+      whereClause.requestedPriority = {
+        equals: priority,
+        mode: "insensitive",
+      };
+    }
+
+    if (status && status.toLowerCase() !== "all") {
+      whereClause.currentStatus = {
+        equals: status,
+        mode: "insensitive",
+      };
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { summary: { contains: search, mode: "insensitive" } },
+        { ticketNumber: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    let orderBy: any = {};
+    const fieldMap: Record<string, string> = {
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+      ticketNumber: "ticketNumber",
+      summary: "summary",
+      priority: "requestedPriority",
+      requestedPriority: "requestedPriority",
+      status: "currentStatus",
+      currentStatus: "currentStatus",
+    };
+
+    const sortField = fieldMap[rawSort] || "createdAt";
+    orderBy[sortField] = order;
+
+    const skip = (page - 1) * limit;
+
+    const [items, totalItems] = await Promise.all([
+      prisma.ticket.findMany({
+        where: whereClause,
+        orderBy,
+        skip,
+        take: limit,
+        include: {
+          category: { select: { id: true, name: true } },
+          relatedSystem: { select: { id: true, name: true } },
+          attachments: {
+            where: { isRemoved: false },
+            select: {
+              id: true,
+              originalFileName: true,
+              storedFileName: true,
+              fileSize: true,
+              mimeType: true,
+              createdAt: true,
+            },
+          },
+          requester: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.ticket.count({ where: whereClause }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit) || 1;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        items,
+        meta: {
+          currentPage: page,
+          limit,
+          totalItems,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("Fetch tickets error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve tickets",
+      },
+    });
+  }
+};
+
+app.get("/api/tickets", handleGetTickets);
+app.get("/api/tickets/my", handleGetTickets);
+
+// ---------------------------------------------------------------------------
 // ISSUE-04: POST /api/tickets
 // ---------------------------------------------------------------------------
 app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) => {
