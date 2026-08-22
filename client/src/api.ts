@@ -5,16 +5,40 @@ export interface Category {
   name: string;
 }
 
+export interface RelatedSystem {
+  id: number;
+  name: string;
+}
+
+export interface Attachment {
+  id: number;
+  originalFileName: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+export interface Ticket {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  description: string;
+  requestedPriority: string;
+  currentStatus: string;
+  requesterId: number;
+  categoryId: number;
+  relatedSystemId: number;
+  category?: Category;
+  relatedSystem?: RelatedSystem;
+  attachments?: Attachment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SystemStatus {
   online: boolean;
   categories: Category[];
 }
 
-// Issue 2 + Issue 4 — call the backend.
-// Steps: fetch `${API_URL}/api/health`; if not ok, throw.
-//        then fetch `${API_URL}/api/categories`; if not ok, throw.
-//        return { online: true, categories }.
-// Throwing on failure lets the UI show a single Offline/error state.
 export async function checkSystem(): Promise<SystemStatus> {
   try {
     const healthRes = await fetch(`${API_URL}/api/health`);
@@ -51,3 +75,43 @@ export async function fetchRequesters(): Promise<Requester[]> {
   }
 }
 
+export async function fetchCategories(): Promise<Category[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/categories`);
+    if (!res.ok) {
+      throw new Error("Unable to retrieve categories");
+    }
+    return await res.json();
+  } catch (error: any) {
+    throw new Error(error.message || "Unable to retrieve categories");
+  }
+}
+
+export async function fetchRelatedSystems(): Promise<RelatedSystem[]> {
+  try {
+    const res = await fetch(`${API_URL}/api/related-systems`);
+    if (!res.ok) {
+      throw new Error("Unable to retrieve related systems");
+    }
+    return await res.json();
+  } catch (error: any) {
+    throw new Error(error.message || "Unable to retrieve related systems");
+  }
+}
+
+export async function createTicket(formData: FormData, userId: number): Promise<Ticket> {
+  const res = await fetch(`${API_URL}/api/tickets`, {
+    method: "POST",
+    headers: {
+      "x-user-id": userId.toString(),
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to create ticket");
+  }
+
+  return data.data;
+}
