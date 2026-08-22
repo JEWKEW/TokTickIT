@@ -3,6 +3,7 @@ import { checkSystem, Category, Requester } from "./api.js";
 import Navbar from "./components/Navbar.js";
 import RequesterSelection from "./components/RequesterSelection.js";
 import CreateTicketForm from "./components/CreateTicketForm.js";
+import MyTicketsList from "./components/MyTicketsList.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
 type ViewState = "dashboard" | "create-ticket";
@@ -73,70 +74,64 @@ export default function App() {
             onCancel={() => setCurrentView("dashboard")}
           />
         ) : (
-          <div className="container py-5" style={{ maxWidth: 768 }}>
-            <div className="card shadow-sm p-4 border-0 mb-4 bg-white rounded-3">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                  <h1 className="h4 text-zen-green mb-1 fw-bold">
-                    Requester Portal Dashboard
-                  </h1>
-                  <p className="text-muted small mb-0">
-                    Active Context: <strong>{activeRequester.name}</strong> ({activeRequester.email})
-                  </p>
+          <div>
+            <MyTicketsList
+              userId={activeRequester.id}
+              onCreateTicket={() => setCurrentView("create-ticket")}
+            />
+
+            <div className="container pb-5" style={{ maxWidth: 768 }}>
+              <div className="card shadow-sm p-4 border-0 mb-4 bg-white rounded-3">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h2 className="h6 text-zen-green mb-1 fw-bold">
+                      System Diagnostics
+                    </h2>
+                    <p className="text-muted small mb-0">
+                      Active Context: <strong>{activeRequester.name}</strong> ({activeRequester.email})
+                    </p>
+                  </div>
                 </div>
-                <div className="d-flex align-items-center gap-2">
+
+                <div className="border-top pt-3">
                   <button
-                    type="button"
-                    className="btn btn-zen-green btn-sm fw-bold px-3"
-                    onClick={() => setCurrentView("create-ticket")}
-                    data-testid="create-ticket-btn"
+                    className="btn btn-outline-success btn-sm mb-2 fw-medium"
+                    onClick={handleCheck}
+                    disabled={state === "loading"}
+                    data-testid="check-system-btn"
                   >
-                    + New Ticket
+                    {state === "loading" ? "Loading…" : "Check System"}
                   </button>
-                  <span className="badge bg-success bg-opacity-10 text-success px-3 py-2 border border-success border-opacity-25 rounded-pill">
-                    Simulated Session
-                  </span>
-                </div>
-              </div>
 
-              <div className="border-top pt-4 mt-2">
-                <button
-                  className="btn btn-zen-green mb-3"
-                  onClick={handleCheck}
-                  disabled={state === "loading"}
-                  data-testid="check-system-btn"
-                >
-                  {state === "loading" ? "Loading…" : "Check System"}
-                </button>
+                  {state === "loading" && (
+                    <div className="mt-3 text-muted">Loading…</div>
+                  )}
 
-                {state === "loading" && (
-                  <div className="mt-3 text-muted">Loading…</div>
-                )}
-
-                {state === "success" && (
-                  <div className="mt-3">
-                    <div className="alert alert-success">
-                      System Status: Online
-                    </div>
+                  {state === "success" && (
                     <div className="mt-3">
-                      <h2 className="h6 fw-bold">Supported Request Categories:</h2>
-                      <ol className="list-group list-group-numbered mt-2">
-                        {categories.map((category) => (
-                          <li key={category.id} className="list-group-item">
-                            {category.name}
-                          </li>
-                        ))}
-                      </ol>
+                      <div className="alert alert-success py-2 px-3 small">
+                        System Status: Online
+                      </div>
+                      <div className="mt-2">
+                        <h3 className="h6 fw-bold small">Supported Request Categories:</h3>
+                        <ol className="list-group list-group-numbered mt-1 small">
+                          {categories.map((category) => (
+                            <li key={category.id} className="list-group-item py-1">
+                              {category.name}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {state === "error" && (
-                  <div className="mt-3 alert alert-danger">
-                    <div>System Status: Offline</div>
-                    <div className="mt-1">{errorMsg}</div>
-                  </div>
-                )}
+                  {state === "error" && (
+                    <div className="mt-3 alert alert-danger py-2 px-3 small">
+                      <div>System Status: Offline</div>
+                      <div className="mt-1">{errorMsg}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
