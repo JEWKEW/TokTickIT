@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { checkSystem, Category, Requester } from "./api.js";
 import Navbar from "./components/Navbar.js";
 import RequesterSelection from "./components/RequesterSelection.js";
+import CreateTicketForm from "./components/CreateTicketForm.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
+type ViewState = "dashboard" | "create-ticket";
 
 export default function App() {
   const [activeRequester, setActiveRequester] = useState<Requester | null>(() => {
@@ -18,6 +20,7 @@ export default function App() {
     return null;
   });
 
+  const [currentView, setCurrentView] = useState<ViewState>("dashboard");
   const [state, setState] = useState<UiState>("idle");
   const [categories, setCategories] = useState<Category[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -26,6 +29,7 @@ export default function App() {
     setActiveRequester(requester);
     sessionStorage.setItem("selectedRequester", JSON.stringify(requester));
     sessionStorage.setItem("x-user-id", requester.id.toString());
+    setCurrentView("dashboard");
   }
 
   function handleChangeRequester() {
@@ -35,6 +39,7 @@ export default function App() {
     setState("idle");
     setCategories([]);
     setErrorMsg("");
+    setCurrentView("dashboard");
   }
 
   async function handleCheck() {
@@ -55,13 +60,20 @@ export default function App() {
       <Navbar
         activeRequester={activeRequester}
         onChangeRequester={handleChangeRequester}
+        currentView={currentView}
+        onNavigate={(view) => setCurrentView(view)}
       />
 
-      <main className="flex-grow-1">
+      <main className="flex-grow-1 bg-light">
         {!activeRequester ? (
           <RequesterSelection onSelectRequester={handleSelectRequester} />
+        ) : currentView === "create-ticket" ? (
+          <CreateTicketForm
+            userId={activeRequester.id}
+            onCancel={() => setCurrentView("dashboard")}
+          />
         ) : (
-          <div className="container py-5" style={{ maxWidth: 640 }}>
+          <div className="container py-5" style={{ maxWidth: 768 }}>
             <div className="card shadow-sm p-4 border-0 mb-4 bg-white rounded-3">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
@@ -72,9 +84,19 @@ export default function App() {
                     Active Context: <strong>{activeRequester.name}</strong> ({activeRequester.email})
                   </p>
                 </div>
-                <span className="badge bg-success bg-opacity-10 text-success px-3 py-2 border border-success border-opacity-25 rounded-pill">
-                  Simulated Session
-                </span>
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-zen-green btn-sm fw-bold px-3"
+                    onClick={() => setCurrentView("create-ticket")}
+                    data-testid="create-ticket-btn"
+                  >
+                    + New Ticket
+                  </button>
+                  <span className="badge bg-success bg-opacity-10 text-success px-3 py-2 border border-success border-opacity-25 rounded-pill">
+                    Simulated Session
+                  </span>
+                </div>
               </div>
 
               <div className="border-top pt-4 mt-2">
