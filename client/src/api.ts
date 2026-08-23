@@ -15,6 +15,10 @@ export interface Attachment {
   originalFileName: string;
   fileSize: number;
   mimeType: string;
+  isRemoved?: boolean;
+  removalReason?: string | null;
+  removedAt?: string | null;
+  createdAt?: string;
 }
 
 export interface Ticket {
@@ -195,4 +199,86 @@ export async function fetchTicketById(
 
   return data.data;
 }
+
+export async function uploadAttachment(
+  ticketId: number,
+  files: File | File[],
+  userId: number
+): Promise<Attachment[]> {
+  const formData = new FormData();
+  const fileArray = Array.isArray(files) ? files : [files];
+  fileArray.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, {
+    method: "POST",
+    headers: {
+      "x-user-id": userId.toString(),
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to upload attachment");
+  }
+
+  return data.data;
+}
+
+export async function downloadAttachment(
+  attachmentId: number,
+  userId: number,
+  originalFileName: string
+): Promise<void> {
+  const url = `${API_URL}/api/attachments/${attachmentId}/download`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "x-user-id": userId.toString(),
+    },
+  });
+
+  if (!res.ok) {
+    let errorMsg = "Failed to download attachment";
+    try {
+      const data = await res.json();
+      errorMsg = data?.error?.message || errorMsg;
+    } catch (_) {}
+    throw new Error(errorMsg);
+  }
+
+  const blob = await res.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = originalFileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
+export async function removeAttachment(
+  attachmentId: number,
+  removalReason: string,
+  userId: number
+): Promise<void> {
+  const url = `${API_URL}/api/attachments/${attachmentId}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ removalReason }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to remove attachment");
+  }
+}
+
 
