@@ -5,8 +5,10 @@ import RequesterSelection from "./components/RequesterSelection.js";
 import CreateTicketForm from "./components/CreateTicketForm.js";
 import MyTicketsList from "./components/MyTicketsList.js";
 
+import TicketDetail from "./components/TicketDetail.js";
+
 type UiState = "idle" | "loading" | "success" | "error";
-type ViewState = "dashboard" | "create-ticket";
+type ViewState = "dashboard" | "create-ticket" | "ticket-detail";
 
 export default function App() {
   const [activeRequester, setActiveRequester] = useState<Requester | null>(() => {
@@ -22,6 +24,7 @@ export default function App() {
   });
 
   const [currentView, setCurrentView] = useState<ViewState>("dashboard");
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [state, setState] = useState<UiState>("idle");
   const [categories, setCategories] = useState<Category[]>([]);
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -31,6 +34,7 @@ export default function App() {
     sessionStorage.setItem("selectedRequester", JSON.stringify(requester));
     sessionStorage.setItem("x-user-id", requester.id.toString());
     setCurrentView("dashboard");
+    setSelectedTicketId(null);
   }
 
   function handleChangeRequester() {
@@ -41,6 +45,7 @@ export default function App() {
     setCategories([]);
     setErrorMsg("");
     setCurrentView("dashboard");
+    setSelectedTicketId(null);
   }
 
   async function handleCheck() {
@@ -61,13 +66,25 @@ export default function App() {
       <Navbar
         activeRequester={activeRequester}
         onChangeRequester={handleChangeRequester}
-        currentView={currentView}
-        onNavigate={(view) => setCurrentView(view)}
+        currentView={currentView as any}
+        onNavigate={(view) => {
+          setSelectedTicketId(null);
+          setCurrentView(view as ViewState);
+        }}
       />
 
       <main className="flex-grow-1 bg-light">
         {!activeRequester ? (
           <RequesterSelection onSelectRequester={handleSelectRequester} />
+        ) : currentView === "ticket-detail" && selectedTicketId !== null ? (
+          <TicketDetail
+            ticketId={selectedTicketId}
+            userId={activeRequester.id}
+            onBack={() => {
+              setSelectedTicketId(null);
+              setCurrentView("dashboard");
+            }}
+          />
         ) : currentView === "create-ticket" ? (
           <CreateTicketForm
             userId={activeRequester.id}
@@ -78,6 +95,10 @@ export default function App() {
             <MyTicketsList
               userId={activeRequester.id}
               onCreateTicket={() => setCurrentView("create-ticket")}
+              onSelectTicket={(ticketId) => {
+                setSelectedTicketId(ticketId);
+                setCurrentView("ticket-detail");
+              }}
             />
 
             <div className="container pb-5" style={{ maxWidth: 768 }}>
