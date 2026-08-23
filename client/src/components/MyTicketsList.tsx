@@ -10,9 +10,10 @@ import {
 interface MyTicketsListProps {
   userId: number;
   onCreateTicket?: () => void;
+  onSelectTicket?: (ticketId: number) => void;
 }
 
-export default function MyTicketsList({ userId, onCreateTicket }: MyTicketsListProps) {
+export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }: MyTicketsListProps) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
     currentPage: 1,
@@ -392,9 +393,20 @@ export default function MyTicketsList({ userId, onCreateTicket }: MyTicketsListP
                 </thead>
                 <tbody>
                   {tickets.map((t) => (
-                    <tr key={t.id}>
+                    <tr key={t.id} data-testid={`ticket-row-${t.id}`}>
                       <td className="ps-4 fw-bold font-monospace text-zen-green">
-                        {t.ticketNumber}
+                        {onSelectTicket ? (
+                          <button
+                            type="button"
+                            className="btn btn-link text-zen-green font-monospace p-0 fw-bold text-decoration-none"
+                            onClick={() => onSelectTicket(t.id)}
+                            data-testid={`ticket-link-${t.id}`}
+                          >
+                            {t.ticketNumber}
+                          </button>
+                        ) : (
+                          t.ticketNumber
+                        )}
                       </td>
                       <td className="text-muted small">
                         {new Date(t.createdAt).toLocaleDateString(undefined, {
@@ -403,7 +415,19 @@ export default function MyTicketsList({ userId, onCreateTicket }: MyTicketsListP
                           day: "numeric",
                         })}
                       </td>
-                      <td className="fw-medium text-dark">{t.summary}</td>
+                      <td className="fw-medium text-dark">
+                        {onSelectTicket ? (
+                          <button
+                            type="button"
+                            className="btn btn-link text-dark p-0 fw-medium text-decoration-none text-start"
+                            onClick={() => onSelectTicket(t.id)}
+                          >
+                            {t.summary}
+                          </button>
+                        ) : (
+                          t.summary
+                        )}
+                      </td>
                       <td>
                         <span className="badge bg-light text-dark border">
                           {t.category?.name || "N/A"}

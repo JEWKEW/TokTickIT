@@ -29,6 +29,7 @@ export interface Ticket {
   relatedSystemId: number;
   category?: Category;
   relatedSystem?: RelatedSystem;
+  requester?: Requester;
   attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
@@ -172,3 +173,26 @@ export async function fetchTickets(
 
   return data.data;
 }
+
+export async function fetchTicketById(
+  id: number,
+  userId: number
+): Promise<Ticket> {
+  const url = `${API_URL}/api/tickets/${id}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve ticket details");
+  }
+
+  return data.data;
+}
+

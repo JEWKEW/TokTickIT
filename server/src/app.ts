@@ -282,6 +282,107 @@ app.get("/api/tickets", handleGetTickets);
 app.get("/api/tickets/my", handleGetTickets);
 
 // ---------------------------------------------------------------------------
+// ISSUE-06: GET /api/tickets/:id
+// ---------------------------------------------------------------------------
+app.get("/api/tickets/:id", async (req: Request, res: Response) => {
+  try {
+    const rawUserId = req.headers["x-user-id"];
+    const userId = parseInt(String(rawUserId), 10);
+
+    if (isNaN(userId)) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing or invalid x-user-id header",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const requester = await prisma.requesterUser.findUnique({
+      where: { id: userId },
+    });
+
+    if (!requester || !requester.isActive) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Requester not found or inactive",
+        },
+      });
+    }
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: {
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+        requester: { select: { id: true, name: true, email: true } },
+        attachments: {
+          where: { isRemoved: false },
+          select: {
+            id: true,
+            originalFileName: true,
+            storedFileName: true,
+            fileSize: true,
+            mimeType: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    if (ticket.requesterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You do not have permission to view this ticket",
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: ticket,
+    });
+  } catch (error: any) {
+    console.error("Fetch ticket detail error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve ticket details",
+      },
+    });
+  }
+});
+
+
+// ---------------------------------------------------------------------------
 // ISSUE-04: POST /api/tickets
 // ---------------------------------------------------------------------------
 app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) => {
