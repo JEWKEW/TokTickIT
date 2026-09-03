@@ -1,6 +1,6 @@
-# 🎫 TokTickIT — IT Service Desk
+# 🎫 TokTickIT — IT Service Desk Platform
 
-**TokTickIT** is an enterprise-grade IT Service Desk ticketing platform built with Express TypeScript backend, PostgreSQL via Prisma ORM, and a React Vite frontend styled with Bootstrap 5.
+**TokTickIT** is an enterprise-grade IT Service Desk ticketing platform built with an Express TypeScript backend, PostgreSQL via Prisma ORM, and a React Vite frontend styled with Bootstrap 5 and the **Zen Green** design system.
 
 ---
 
@@ -8,14 +8,14 @@
 
 - [Overview & Architecture](#-overview--architecture)
 - [Tech Stack](#-tech-stack)
-- [Lab 01 Features Implemented](#-lab-01-features-implemented)
+- [Lab 02 Features Implemented](#-lab-02-features-implemented)
 - [Getting Started](#-getting-started)
   - [Prerequisites](#prerequisites)
   - [Backend Setup](#backend-setup)
   - [Frontend Setup](#frontend-setup)
-- [API Endpoints](#-api-endpoints)
-- [Testing](#-testing)
-- [Documentation & Lab Submission](#-documentation--lab-submission)
+- [API Endpoints Overview](#-api-endpoints-overview)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Documentation & Lab Deliverables](#-documentation--lab-deliverables)
 
 ---
 
@@ -25,15 +25,18 @@ TokTickIT is structured as a monorepo containing decoupled client and server pac
 
 ```text
 TokTickIT/
-├── client/              # Frontend React application (Vite + TS)
-│   ├── src/             # App component and API client
-│   └── tests/lab-01/    # Component & integration test suites (Vitest + RTL)
+├── client/              # Frontend React application (Vite + TypeScript)
+│   ├── src/             # App components, API client, and Zen Green styling
+│   └── tests/lab-02/    # Component & integration test suites (Vitest + RTL)
 ├── server/              # Backend Express REST API (TypeScript)
 │   ├── prisma/          # Prisma schema, migrations, and seed scripts
-│   ├── src/             # Express app, server entrypoint, and DB handle
-│   └── tests/lab-01/    # API integration test suites (Supertest + Vitest)
+│   ├── src/             # Express app handlers, routes, and DB handle
+│   └── tests/lab-02/    # API integration test suites (Supertest + Vitest)
+├── e2e/                 # Playwright E2E & responsive visual audit test suite
+├── artifacts/           # Responsive screenshot evidence artifacts
 └── docs/                # Lab documentation & peer review records
-    └── lab-01/          # Lab 01 deliverables (tests, reviewer log, AI reflection)
+    ├── lab-01/          # Lab 01 deliverables
+    └── lab-02/          # Lab 02 deliverables (specification, tests, ui-spec, api-spec, reviewer, ai-use)
 ```
 
 ---
@@ -43,27 +46,43 @@ TokTickIT/
 ### Backend (`server/`)
 - **Runtime & Framework:** Node.js, Express.js (TypeScript)
 - **Database & ORM:** PostgreSQL, Prisma ORM
-- **Development Tooling:** `tsx` watcher
+- **File Storage:** Multer middleware with local sanitized uploads
 - **Testing:** Vitest, Supertest
 
 ### Frontend (`client/`)
 - **Framework & Build Tool:** React 18, Vite (TypeScript)
-- **UI & Styling:** Bootstrap 5
+- **UI & Styling:** Bootstrap 5, Zen Green CSS design tokens
 - **Testing:** Vitest, React Testing Library, jsdom
+
+### End-to-End (`e2e/`)
+- **Testing Framework:** Playwright (Chromium) across Desktop (1280px), Tablet (768px), and Mobile (375px) viewports.
 
 ---
 
-## 🚀 Lab 01 Features Implemented
+## 🚀 Lab 02 Features Implemented
 
-1. **System Health Check Endpoint:** `GET /api/health` returning operational status.
-2. **Category Database Seeding:** Seeded 4 default IT request categories:
-   - Account and Access
-   - Hardware
-   - Software
-   - Network
-3. **Category List Endpoint:** `GET /api/categories` returning category records sorted predictably by ID.
-4. **Interactive Dashboard UI:** React interface with state management for checking connection, loading state, online/offline status, and active category listings.
-5. **Automated Test Coverage:** Comprehensive Supertest backend tests and Vitest/RTL frontend tests.
+1. **Development Requester Selection ("Fake Login"):**
+   - Active-only requester selector dropdown in navbar (`isActive = true`).
+   - Persisted identity display in app header with `x-user-id` HTTP header propagation.
+   - Live data fetching from PostgreSQL with loading, empty, and failure state handling.
+
+2. **Ticket Creation with File Attachments:**
+   - Client and server-side validation for required fields (Category, Related System, Summary, Description, Requested Priority).
+   - Auto-generation of unique ticket numbers (`TKT-YYYY-XXXXXX`).
+   - File attachment support (JPG, PNG, WEBP, PDF up to 5MB, max 3 files at creation).
+   - Read-only field styling, inline validation messages, and submit busy/duplicate-prevention states.
+
+3. **Paginated "My Tickets" Dashboard:**
+   - Requester-scoped query isolation.
+   - Debounced search (ticket number & summary) and multi-field filters (Category, Priority, Status).
+   - Sort controls (date, priority, status) and pagination controls (`page`, `limit`).
+   - Responsive multi-column table on desktop and stacked card view on mobile.
+
+4. **Read-Only Ticket Detail & Attachment Soft-Removal:**
+   - Server-enforced ownership checks (HTTP 403 Forbidden for unauthorized users).
+   - Read-only display of ticket metadata, status, and description.
+   - Attachment soft-deletion (`isRemoved = true`, `removedAt`, `removalReason`) with confirmation modal.
+   - Download restriction for soft-removed files.
 
 ---
 
@@ -84,18 +103,17 @@ TokTickIT/
    ```bash
    npm install
    ```
-3. Configure environment variables:
-   Copy `.env.example` to `.env` and set your `DATABASE_URL`:
+3. Configure environment variables in `.env`:
    ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/toktickit_db?schema=public"
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/toktickit_db?schema=public"
    PORT=3000
    ```
-4. Run database migrations & seed categories:
+4. Run database migrations & seed data:
    ```bash
    npm run prisma:migrate
    npm run prisma:seed
    ```
-5. Start backend development server:
+5. Start backend dev server:
    ```bash
    npm run dev
    ```
@@ -115,44 +133,61 @@ TokTickIT/
    ```bash
    npm run dev
    ```
-   Frontend application will be available at `http://localhost:5173`.
+   Frontend app runs at `http://localhost:5173`.
 
 ---
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints Overview
 
-| Method | Endpoint | Description | Expected Response |
+| Method | Endpoint | Description | Auth / Scope |
 |---|---|---|---|
-| `GET` | `/api/health` | Health check endpoint | `{ "status": "ok", "service": "TokTickIT API" }` |
-| `GET` | `/api/categories` | Retrieve all seeded categories | `[{ "id": 1, "name": "Account and Access" }, ...]` |
+| `GET` | `/api/health` | Health check endpoint | Public |
+| `GET` | `/api/requesters` | List active development requesters | Public |
+| `GET` | `/api/categories` | List active categories | Public |
+| `GET` | `/api/related-systems` | List active related systems | Public |
+| `POST` | `/api/tickets` | Create new ticket with file attachments | `x-user-id` |
+| `GET` | `/api/tickets/my` | Paginated ticket list for active requester | `x-user-id` |
+| `GET` | `/api/tickets/:id` | Single ticket detail view | `x-user-id` (Owner) |
+| `POST` | `/api/tickets/:id/attachments` | Upload attachment to existing ticket | `x-user-id` (Owner) |
+| `GET` | `/api/attachments/:id/download` | Download active file attachment | `x-user-id` (Owner) |
+| `DELETE` | `/api/tickets/:id/attachments/:attachmentId` | Soft-remove attachment | `x-user-id` (Owner) |
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & Quality Assurance
 
-### Server Test Suite
-Runs Supertest API integration tests against Express endpoints.
+### Server Integration Test Suite (`server/`)
 ```bash
 cd server
 npm test
 ```
+*Result:* 7 test files, 36 tests passing (100% pass rate).
 
-### Client Test Suite
-Runs Vitest and React Testing Library tests for UI state rendering.
+### Client Component Test Suite (`client/`)
 ```bash
 cd client
 npm test
 ```
+*Result:* 6 test files, 32 tests passing (100% pass rate).
+
+### Playwright E2E & Responsive Visual Audit (`root`)
+```bash
+npx playwright test
+```
+*Result:* 1 test suite passing (100% pass rate), generating responsive screenshot artifacts under `artifacts/lab-02/screenshots/`.
 
 ---
 
-## 📄 Documentation & Lab Submission
+## 📄 Documentation & Lab Deliverables
 
-Lab deliverables and peer review records are stored under `docs/lab-01/`:
+Lab 02 documentation files are located under `docs/lab-02/`:
 
-- 📜 [**Test Plan & Evidence**](file:///d:/TokTickIT/docs/lab-01/tests.md)
-- 🤝 [**Peer Review Record**](file:///d:/TokTickIT/docs/lab-01/reviewer.md)
-- 🤖 [**AI Use & Reflection**](file:///d:/TokTickIT/docs/lab-01/ai_use.md)
+- 📜 [**System Specification**](file:///d:/TokTickIT/docs/lab-02/specification.md) (All 11 required sections)
+- 🔌 [**REST API Specification**](file:///d:/TokTickIT/docs/lab-02/api-spec.md)
+- 🎨 [**Responsive UI & Zen Green Spec**](file:///d:/TokTickIT/docs/lab-02/ui-spec.md)
+- 🧪 [**Test Strategy & AC Traceability**](file:///d:/TokTickIT/docs/lab-02/tests.md)
+- 🤝 [**Peer Review Record**](file:///d:/TokTickIT/docs/lab-02/reviewer.md)
+- 🤖 [**AI Use & Reflection**](file:///d:/TokTickIT/docs/lab-02/ai-use.md)
 
 ---
 
