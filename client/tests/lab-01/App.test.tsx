@@ -4,9 +4,21 @@ import App from "../../src/App.js";
 import * as api from "../../src/api.js";
 
 describe("App", () => {
+  beforeEach(() => {
+    sessionStorage.setItem(
+      "selectedRequester",
+      JSON.stringify({
+        id: 1,
+        name: "Alice Johnson",
+        email: "alice@toktickit.io",
+        isActive: true,
+      })
+    );
+  });
+
   it("renders the TokTickIT heading", () => {
     render(<App />);
-    expect(screen.getByText(/TokTickIT/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/TokTickIT/i)[0]).toBeInTheDocument();
   });
 
   it("shows loading state when button is clicked", async () => {

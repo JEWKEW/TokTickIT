@@ -1,0 +1,72 @@
+:root {
+  --zg-primary: #006B3C;
+  --zg-primary-hover: #00522e;
+  --zg-primary-light: #e6f0eb;
+  --zg-primary-900: #1B3B2B;
+  --zg-primary-800: #006B3C;
+  --zg-emerald-500: #3E9B5F;
+  --zg-sage-100: #EBF3ED;
+  --zg-sage-50: #F4F8F5;
+  --zg-bg-main: #F8FAF9;
+  --zg-surface-card: #FFFFFF;
+  --zg-border-color: #E2ECE5;
+  --zg-text-heading: #122119;
+  --zg-text-body: #3A4B40;
+  --zg-text-muted: #738A7C;
+}
+
+body {
+  background-color: var(--zg-bg-main);
+  color: var(--zg-text-body);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.bg-zen-green {
+  background-color: #006B3C !important;
+  color: #ffffff !important;
+}
+
+.btn-zen-green {
+  background-color: #006B3C;
+  color: #ffffff;
+  border: none;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.btn-zen-green:hover,
+.btn-zen-green:focus {
+  background-color: #00522e;
+  color: #ffffff;
+}
+
+.btn-zen-green:disabled {
+  background-color: #7da893;
+  color: #ffffff;
+}
+
+.btn-outline-zen-green {
+  background-color: transparent;
+  color: #006B3C;
+  border: 1px solid #006B3C;
+  font-weight: 500;
+}
+
+.btn-outline-zen-green:hover {
+  background-color: #006B3C;
+  color: #ffffff;
+}
+
+.border-zen-green {
+  border-color: #006B3C !important;
+}
+
+.text-zen-green {
+  color: #006B3C !important;
+}
+
+.card-zen-green {
+  border: 1px solid var(--zg-border-color);
+  box-shadow: 0 4px 12px rgba(0, 107, 60, 0.08);
+  border-radius: 12px;
+}
