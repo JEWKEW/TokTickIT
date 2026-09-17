@@ -113,7 +113,7 @@ app.get("/api/related-systems", async (_req: Request, res: Response) => {
 const handleGetRequesters = async (_req: Request, res: Response) => {
   try {
     const prisma = getPrisma();
-    const requesters = await prisma.requesterUser.findMany({
+    const requesters = await ((prisma as any).user || (prisma as any).requesterUser).findMany({
       where: { isActive: true },
       orderBy: { id: "asc" },
       select: {
@@ -151,7 +151,7 @@ const handleGetTickets = async (req: Request, res: Response) => {
     }
 
     const prisma = getPrisma();
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
       where: { id: userId },
     });
 
@@ -300,7 +300,7 @@ app.get("/api/tickets/:id", async (req: Request, res: Response) => {
     }
 
     const prisma = getPrisma();
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
       where: { id: userId },
     });
 
@@ -403,7 +403,7 @@ app.post("/api/tickets/:id/attachments", uploadMiddleware, async (req: Request, 
     }
 
     const prisma = getPrisma();
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
       where: { id: userId },
     });
 
@@ -573,7 +573,7 @@ app.get("/api/attachments/:id/download", async (req: Request, res: Response) => 
     }
 
     const prisma = getPrisma();
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
       where: { id: userId },
     });
 
@@ -676,7 +676,7 @@ const handleDeleteAttachment = async (req: Request, res: Response) => {
     }
 
     const prisma = getPrisma();
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
       where: { id: userId },
     });
 
@@ -779,7 +779,7 @@ app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) =
     }
 
     const prisma = getPrisma();
-    const requester = await prisma.requesterUser.findUnique({
+    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
       where: { id: userId },
     });
 
