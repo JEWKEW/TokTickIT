@@ -376,35 +376,20 @@ app.get("/api/users/dev-list", handleGetRequesters);
 // ---------------------------------------------------------------------------
 // ISSUE-05: GET /api/tickets & GET /api/tickets/my
 // ---------------------------------------------------------------------------
-const handleGetTickets = async (req: Request, res: Response) => {
+const handleGetTickets = async (req: AuthRequest, res: Response) => {
   try {
-    const rawUserId = req.headers["x-user-id"];
-    const userId = parseInt(String(rawUserId), 10);
-
-    if (isNaN(userId)) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Missing or invalid x-user-id header",
+          message: "Authentication required",
         },
       });
     }
 
-    const prisma = getPrisma();
-    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
-      where: { id: userId },
-    });
-
-    if (!requester || !requester.isActive) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Requester not found or inactive",
-        },
-      });
-    }
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
 
     const search = req.query.search ? String(req.query.search).trim() : "";
     const categoryId = req.query.categoryId ? parseInt(String(req.query.categoryId), 10) : undefined;
@@ -419,9 +404,10 @@ const handleGetTickets = async (req: Request, res: Response) => {
     const rawLimit = parseInt(String(req.query.limit || "10"), 10) || 10;
     const limit = Math.min(50, Math.max(1, rawLimit));
 
-    const whereClause: any = {
-      requesterId: userId,
-    };
+    const whereClause: any = {};
+    if (userRole === "REQUESTER" || req.path === "/api/tickets/my" || (req.originalUrl && req.originalUrl.includes("/api/tickets/my"))) {
+      whereClause.requesterId = userId;
+    }
 
     if (categoryId !== undefined && !isNaN(categoryId)) {
       whereClause.categoryId = categoryId;
@@ -465,6 +451,7 @@ const handleGetTickets = async (req: Request, res: Response) => {
 
     const skip = (page - 1) * limit;
 
+    const prisma = getPrisma();
     const [items, totalItems] = await Promise.all([
       prisma.ticket.findMany({
         where: whereClause,
@@ -486,6 +473,7 @@ const handleGetTickets = async (req: Request, res: Response) => {
             },
           },
           requester: { select: { id: true, name: true, email: true } },
+          owner: { select: { id: true, name: true, email: true } },
         },
       }),
       prisma.ticket.count({ where: whereClause }),
@@ -519,41 +507,26 @@ const handleGetTickets = async (req: Request, res: Response) => {
   }
 };
 
-app.get("/api/tickets", handleGetTickets);
-app.get("/api/tickets/my", handleGetTickets);
+app.get("/api/tickets", authenticateToken, enforcePasswordChange, handleGetTickets);
+app.get("/api/tickets/my", authenticateToken, enforcePasswordChange, handleGetTickets);
 
 // ---------------------------------------------------------------------------
 // ISSUE-06: GET /api/tickets/:id
 // ---------------------------------------------------------------------------
-app.get("/api/tickets/:id", async (req: Request, res: Response) => {
+app.get("/api/tickets/:id", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
   try {
-    const rawUserId = req.headers["x-user-id"];
-    const userId = parseInt(String(rawUserId), 10);
-
-    if (isNaN(userId)) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Missing or invalid x-user-id header",
+          message: "Authentication required",
         },
       });
     }
 
-    const prisma = getPrisma();
-    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
-      where: { id: userId },
-    });
-
-    if (!requester || !requester.isActive) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Requester not found or inactive",
-        },
-      });
-    }
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
 
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
@@ -566,12 +539,14 @@ app.get("/api/tickets/:id", async (req: Request, res: Response) => {
       });
     }
 
+    const prisma = getPrisma();
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
       include: {
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
         requester: { select: { id: true, name: true, email: true } },
+        owner: { select: { id: true, name: true, email: true } },
         attachments: {
           select: {
             id: true,
@@ -599,7 +574,7 @@ app.get("/api/tickets/:id", async (req: Request, res: Response) => {
       });
     }
 
-    if (ticket.requesterId !== userId) {
+    if (userRole === "REQUESTER" && ticket.requesterId !== userId) {
       return res.status(403).json({
         success: false,
         error: {
@@ -628,35 +603,20 @@ app.get("/api/tickets/:id", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // ISSUE-07: POST /api/tickets/:id/attachments - Upload attachment
 // ---------------------------------------------------------------------------
-app.post("/api/tickets/:id/attachments", uploadMiddleware, async (req: Request, res: Response) => {
+app.post("/api/tickets/:id/attachments", authenticateToken, enforcePasswordChange, uploadMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const rawUserId = req.headers["x-user-id"];
-    const userId = parseInt(String(rawUserId), 10);
-
-    if (isNaN(userId)) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Missing or invalid x-user-id header",
+          message: "Authentication required",
         },
       });
     }
 
-    const prisma = getPrisma();
-    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
-      where: { id: userId },
-    });
-
-    if (!requester || !requester.isActive) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Requester not found or inactive",
-        },
-      });
-    }
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
 
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
@@ -669,6 +629,7 @@ app.post("/api/tickets/:id/attachments", uploadMiddleware, async (req: Request, 
       });
     }
 
+    const prisma = getPrisma();
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
       include: {
@@ -688,7 +649,7 @@ app.post("/api/tickets/:id/attachments", uploadMiddleware, async (req: Request, 
       });
     }
 
-    if (ticket.requesterId !== userId) {
+    if (userRole === "REQUESTER" && ticket.requesterId !== userId) {
       return res.status(403).json({
         success: false,
         error: {
@@ -798,35 +759,20 @@ app.post("/api/tickets/:id/attachments", uploadMiddleware, async (req: Request, 
 // ---------------------------------------------------------------------------
 // ISSUE-07: GET /api/attachments/:id/download - Secure File Download
 // ---------------------------------------------------------------------------
-app.get("/api/attachments/:id/download", async (req: Request, res: Response) => {
+app.get("/api/attachments/:id/download", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
   try {
-    const rawUserId = req.headers["x-user-id"];
-    const userId = parseInt(String(rawUserId), 10);
-
-    if (isNaN(userId)) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Missing or invalid x-user-id header",
+          message: "Authentication required",
         },
       });
     }
 
-    const prisma = getPrisma();
-    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
-      where: { id: userId },
-    });
-
-    if (!requester || !requester.isActive) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Requester not found or inactive",
-        },
-      });
-    }
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
 
     const attachmentId = parseInt(req.params.id, 10);
     if (isNaN(attachmentId)) {
@@ -839,6 +785,7 @@ app.get("/api/attachments/:id/download", async (req: Request, res: Response) => 
       });
     }
 
+    const prisma = getPrisma();
     const attachment = await prisma.attachment.findUnique({
       where: { id: attachmentId },
       include: { ticket: true },
@@ -854,7 +801,7 @@ app.get("/api/attachments/:id/download", async (req: Request, res: Response) => 
       });
     }
 
-    if (attachment.ticket.requesterId !== userId) {
+    if (userRole === "REQUESTER" && attachment.ticket.requesterId !== userId) {
       return res.status(403).json({
         success: false,
         error: {
@@ -901,35 +848,20 @@ app.get("/api/attachments/:id/download", async (req: Request, res: Response) => 
 // ---------------------------------------------------------------------------
 // ISSUE-07: DELETE /api/attachments/:id & DELETE /api/tickets/:id/attachments/:attachmentId
 // ---------------------------------------------------------------------------
-const handleDeleteAttachment = async (req: Request, res: Response) => {
+const handleDeleteAttachment = async (req: AuthRequest, res: Response) => {
   try {
-    const rawUserId = req.headers["x-user-id"];
-    const userId = parseInt(String(rawUserId), 10);
-
-    if (isNaN(userId)) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Missing or invalid x-user-id header",
+          message: "Authentication required",
         },
       });
     }
 
-    const prisma = getPrisma();
-    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
-      where: { id: userId },
-    });
-
-    if (!requester || !requester.isActive) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Requester not found or inactive",
-        },
-      });
-    }
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
 
     const rawAttachmentId = req.params.attachmentId || req.params.id;
     const attachmentId = parseInt(rawAttachmentId, 10);
@@ -943,6 +875,7 @@ const handleDeleteAttachment = async (req: Request, res: Response) => {
       });
     }
 
+    const prisma = getPrisma();
     const attachment = await prisma.attachment.findUnique({
       where: { id: attachmentId },
       include: { ticket: true },
@@ -958,7 +891,7 @@ const handleDeleteAttachment = async (req: Request, res: Response) => {
       });
     }
 
-    if (attachment.ticket.requesterId !== userId) {
+    if (userRole === "REQUESTER" && attachment.ticket.requesterId !== userId) {
       return res.status(403).json({
         success: false,
         error: {
@@ -996,50 +929,36 @@ const handleDeleteAttachment = async (req: Request, res: Response) => {
   }
 };
 
-app.delete("/api/attachments/:id", handleDeleteAttachment);
-app.delete("/api/tickets/:id/attachments/:attachmentId", handleDeleteAttachment);
+app.delete("/api/attachments/:id", authenticateToken, enforcePasswordChange, handleDeleteAttachment);
+app.delete("/api/tickets/:id/attachments/:attachmentId", authenticateToken, enforcePasswordChange, handleDeleteAttachment);
 
 
 // ---------------------------------------------------------------------------
 // ISSUE-04: POST /api/tickets
 // ---------------------------------------------------------------------------
-app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) => {
+app.post("/api/tickets", authenticateToken, enforcePasswordChange, uploadMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    // 1. Authenticate Requester via x-user-id header
-    const rawUserId = req.headers["x-user-id"] || req.body?.requesterId;
-    const userId = parseInt(String(rawUserId), 10);
-
-    if (isNaN(userId)) {
+    if (!req.user) {
       return res.status(401).json({
         success: false,
         error: {
           code: "UNAUTHORIZED",
-          message: "Missing or invalid x-user-id header",
+          message: "Authentication required",
         },
       });
     }
 
-    const prisma = getPrisma();
-    const requester = await ((prisma as any).user || (prisma as any).requesterUser).findUnique({
-      where: { id: userId },
-    });
+    // BR-04: Derive requester identity strictly from authenticated session context.
+    const userId = req.user.id;
 
-    if (!requester || !requester.isActive) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "Requester not found or inactive",
-        },
-      });
-    }
-
-    // 2. Validate input fields
+    // Validate input fields
     const { categoryId, relatedSystemId, requestedPriority, summary, description } = req.body;
     const errors: string[] = [];
 
     const parsedCategoryId = parseInt(String(categoryId), 10);
     const parsedRelatedSystemId = parseInt(String(relatedSystemId), 10);
+
+    const prisma = getPrisma();
 
     if (isNaN(parsedCategoryId)) {
       errors.push("Category is required");
@@ -1107,7 +1026,7 @@ app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) =
       String(requestedPriority).charAt(0).toUpperCase() +
       String(requestedPriority).slice(1).toLowerCase();
 
-    // 3. Generate unique Ticket Number (e.g. TKT-YYYY-XXXXXX)
+    // Generate unique Ticket Number (e.g. TKT-YYYY-XXXXXX)
     const year = new Date().getFullYear();
     const count = await prisma.ticket.count();
     let nextNum = count + 1;
@@ -1117,16 +1036,17 @@ app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) =
       ticketNumber = `TKT-${year}-${String(nextNum).padStart(6, "0")}`;
     }
 
-    // 4. Create Ticket & Attachments in DB
+    // Create Ticket & Attachments in DB (BR-06: itPriority defaults to requestedPriority)
     const ticket = await prisma.ticket.create({
       data: {
         ticketNumber,
-        requesterId: requester.id,
+        requesterId: userId,
         categoryId: parsedCategoryId,
         relatedSystemId: parsedRelatedSystemId,
         summary: summary.trim(),
         description: description.trim(),
         requestedPriority: formattedPriority,
+        itPriority: formattedPriority,
         currentStatus: "New",
         attachments: {
           create: files.map((file) => ({
@@ -1156,6 +1076,419 @@ app.post("/api/tickets", uploadMiddleware, async (req: Request, res: Response) =
       error: {
         code: "INTERNAL_ERROR",
         message: "Failed to create ticket",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// BR-05: PATCH /api/tickets/:id/indicate-resolved (Requester Action)
+// ---------------------------------------------------------------------------
+app.patch("/api/tickets/:id/indicate-resolved", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    if (userRole === "REQUESTER" && ticket.requesterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You do not have permission to indicate resolution on this ticket",
+        },
+      });
+    }
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        requesterResolvedIndicated: true,
+        requesterResolvedAt: new Date(),
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: updatedTicket.id,
+        requesterResolvedIndicated: updatedTicket.requesterResolvedIndicated,
+        requesterResolvedAt: updatedTicket.requesterResolvedAt,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to indicate problem resolved",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// BR-09: GET & POST /api/tickets/:id/comments (Public Comments)
+// ---------------------------------------------------------------------------
+app.get("/api/tickets/:id/comments", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    if (userRole === "REQUESTER" && ticket.requesterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You do not have permission to view comments for this ticket",
+        },
+      });
+    }
+
+    const comments = await prisma.publicComment.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        author: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: comments,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve public comments",
+      },
+    });
+  }
+});
+
+app.post("/api/tickets/:id/comments", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    const userId = req.user.id;
+    const userRole = req.user.role || "REQUESTER";
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const { content } = req.body || {};
+    if (!content || typeof content !== "string" || content.trim().length === 0 || content.trim().length > 2000) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Comment content must be between 1 and 2000 characters",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    if (userRole === "REQUESTER" && ticket.requesterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "You do not have permission to post comments on this ticket",
+        },
+      });
+    }
+
+    const comment = await prisma.publicComment.create({
+      data: {
+        ticketId,
+        authorId: userId,
+        content: content.trim(),
+      },
+      include: {
+        author: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: comment,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to post public comment",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// BR-10: GET & POST /api/tickets/:id/internal-notes (Restricted to IT Staff & Admin)
+// ---------------------------------------------------------------------------
+app.get("/api/tickets/:id/internal-notes", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    if (req.user.role === "REQUESTER") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: Internal notes are restricted to IT Staff and Administrators",
+        },
+      });
+    }
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    const notes = await prisma.internalNote.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        author: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: notes,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve internal notes",
+      },
+    });
+  }
+});
+
+app.post("/api/tickets/:id/internal-notes", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    if (req.user.role === "REQUESTER") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: Internal notes are restricted to IT Staff and Administrators",
+        },
+      });
+    }
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const { content } = req.body || {};
+    if (!content || typeof content !== "string" || content.trim().length === 0 || content.trim().length > 2000) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Internal note content must be between 1 and 2000 characters",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    const note = await prisma.internalNote.create({
+      data: {
+        ticketId,
+        authorId: req.user.id,
+        content: content.trim(),
+      },
+      include: {
+        author: {
+          select: { id: true, name: true, role: true },
+        },
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: note,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to post internal note",
       },
     });
   }

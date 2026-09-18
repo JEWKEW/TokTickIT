@@ -27,6 +27,7 @@ export interface Ticket {
   summary: string;
   description: string;
   requestedPriority: string;
+  itPriority?: string;
   currentStatus: string;
   requesterId: number;
   categoryId: number;
@@ -35,8 +36,23 @@ export interface Ticket {
   relatedSystem?: RelatedSystem;
   requester?: Requester;
   attachments?: Attachment[];
+  requesterResolvedIndicated?: boolean;
+  requesterResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PublicComment {
+  id: number;
+  ticketId: number;
+  authorId: number;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: number;
+    name: string;
+    role: string;
+  };
 }
 
 export interface SystemStatus {
@@ -279,6 +295,71 @@ export async function removeAttachment(
   if (!res.ok || !data.success) {
     throw new Error(data?.error?.message || "Failed to remove attachment");
   }
+}
+
+export async function indicateTicketResolved(
+  ticketId: number,
+  userId: number
+): Promise<{ id: number; requesterResolvedIndicated: boolean; requesterResolvedAt: string }> {
+  const url = `${API_URL}/api/tickets/${ticketId}/indicate-resolved`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to indicate problem resolved");
+  }
+
+  return data.data;
+}
+
+export async function fetchPublicComments(
+  ticketId: number,
+  userId: number
+): Promise<PublicComment[]> {
+  const url = `${API_URL}/api/tickets/${ticketId}/comments`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve public comments");
+  }
+
+  return data.data;
+}
+
+export async function postPublicComment(
+  ticketId: number,
+  content: string,
+  userId: number
+): Promise<PublicComment> {
+  const url = `${API_URL}/api/tickets/${ticketId}/comments`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to post public comment");
+  }
+
+  return data.data;
 }
 
 
