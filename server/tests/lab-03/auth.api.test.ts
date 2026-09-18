@@ -262,4 +262,45 @@ describe("Lab 03 Authentication API Endpoints (POST /api/auth/login, GET /api/au
     expect(res.body.success).toBe(true);
     expect(res.body.data.message).toBe("Logged out successfully");
   });
+
+  // TC-API-AUTH-08: Reject invalid or malformed JWT token
+  it("TC-API-AUTH-08: Reject invalid or malformed JWT token", async () => {
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", "Bearer invalid-malformed-token-xyz");
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+    expect(res.body.error.message).toBe("Invalid or expired token");
+  });
+
+  // TC-API-AUTH-09: Reject request if user was deactivated after token generation
+  it("TC-API-AUTH-09: Reject request if user was deactivated after token generation", async () => {
+    const token = generateToken({
+      id: mockActiveUser.id,
+      email: mockActiveUser.email,
+      role: mockActiveUser.role,
+      mustChangePassword: false,
+    });
+
+    // Mock DB returning deactivated user when queried
+    const mockPrisma = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          ...mockActiveUser,
+          isActive: false,
+        }),
+      },
+    };
+    vi.spyOn(prismaModule, "getPrisma").mockReturnValue(mockPrisma as any);
+
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+  });
 });
