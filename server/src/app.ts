@@ -4,6 +4,15 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import { getPrisma } from "./prisma.js";
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+  validatePasswordPolicy,
+  authenticateToken,
+  enforcePasswordChange,
+  AuthRequest,
+} from "./auth.js";
 
 export const app = express();
 
@@ -71,6 +80,238 @@ const uploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
 // ---------------------------------------------------------------------------
 app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok", service: "TokTickIT API" });
+});
+
+// ---------------------------------------------------------------------------
+// Authentication Endpoints
+// ---------------------------------------------------------------------------
+
+// POST /api/auth/login
+app.post("/api/auth/login", async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body || {};
+
+    if (!email || !password || typeof email !== "string" || typeof password !== "string") {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Invalid email or password",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const userModel = (prisma as any).user || (prisma as any).requesterUser;
+    const user = await userModel.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: "insensitive",
+        },
+      },
+    });
+
+    // BR-01: Only active accounts with matching email and hashed password may authenticate.
+    // Inactive account attempts return 401 Unauthorized without revealing account existence details.
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Invalid email or password",
+        },
+      });
+    }
+
+    const isPasswordValid = await comparePassword(password, user.passwordHash);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Invalid email or password",
+        },
+      });
+    }
+
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role || "REQUESTER",
+      mustChangePassword: !!user.mustChangePassword,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role || "REQUESTER",
+          mustChangePassword: !!user.mustChangePassword,
+          isActive: user.isActive,
+        },
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to log in",
+      },
+    });
+  }
+});
+
+// GET /api/auth/me
+app.get("/api/auth/me", authenticateToken, (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "Authentication required",
+      },
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      id: req.user.id,
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role,
+      mustChangePassword: req.user.mustChangePassword,
+      isActive: req.user.isActive,
+    },
+  });
+});
+
+// POST /api/auth/change-password
+app.post("/api/auth/change-password", authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    const { currentPassword, newPassword, confirmNewPassword } = req.body || {};
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Current password, new password, and password confirmation are required",
+        },
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "New password and confirmation do not match",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const userModel = (prisma as any).user || (prisma as any).requesterUser;
+    const user = await userModel.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "User not found",
+        },
+      });
+    }
+
+    const isCurrentValid = await comparePassword(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Current password is incorrect",
+        },
+      });
+    }
+
+    const policyCheck = validatePasswordPolicy(newPassword);
+    if (!policyCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: policyCheck.message || "Invalid password format",
+        },
+      });
+    }
+
+    const isSameAsCurrent = await comparePassword(newPassword, user.passwordHash);
+    if (isSameAsCurrent) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "New password cannot match current password",
+        },
+      });
+    }
+
+    const newPasswordHash = await hashPassword(newPassword);
+
+    await userModel.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: newPasswordHash,
+        mustChangePassword: false,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: "Password updated successfully. You may now access all features.",
+        mustChangePassword: false,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to change password",
+      },
+    });
+  }
+});
+
+// POST /api/auth/logout
+app.post("/api/auth/logout", authenticateToken, (_req: AuthRequest, res: Response) => {
+  return res.status(200).json({
+    success: true,
+    data: {
+      message: "Logged out successfully",
+    },
+  });
 });
 
 // ---------------------------------------------------------------------------
