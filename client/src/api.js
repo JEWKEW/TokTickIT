@@ -174,3 +174,49 @@ export async function removeAttachment(attachmentId, removalReason, userId) {
         throw new Error(data?.error?.message || "Failed to remove attachment");
     }
 }
+export async function indicateTicketResolved(ticketId, userId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/indicate-resolved`;
+    const res = await fetch(url, {
+        method: "PATCH",
+        headers: {
+            "x-user-id": userId.toString(),
+            "Content-Type": "application/json",
+        },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to indicate problem resolved");
+    }
+    return data.data;
+}
+export async function fetchPublicComments(ticketId, userId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/comments`;
+    const res = await fetch(url, {
+        method: "GET",
+        headers: {
+            "x-user-id": userId.toString(),
+            "Content-Type": "application/json",
+        },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to retrieve public comments");
+    }
+    return data.data;
+}
+export async function postPublicComment(ticketId, content, userId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/comments`;
+    const res = await fetch(url, {
+        method: "POST",
+        headers: {
+            "x-user-id": userId.toString(),
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to post public comment");
+    }
+    return data.data;
+}

@@ -1,6 +1,6 @@
 import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
 import { useEffect, useState, useCallback } from "react";
-import { fetchTicketById, uploadAttachment, downloadAttachment, removeAttachment, } from "../api.js";
+import { fetchTicketById, uploadAttachment, downloadAttachment, removeAttachment, indicateTicketResolved, fetchPublicComments, postPublicComment, } from "../api.js";
 export default function TicketDetail({ ticketId, userId, onBack }) {
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -13,6 +13,13 @@ export default function TicketDetail({ ticketId, userId, onBack }) {
     const [removing, setRemoving] = useState(false);
     const [removalError, setRemovalError] = useState(null);
     const [downloadError, setDownloadError] = useState(null);
+    // BR-05 & BR-09 State
+    const [indicatingResolved, setIndicatingResolved] = useState(false);
+    const [indicateError, setIndicateError] = useState(null);
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState("");
+    const [postingComment, setPostingComment] = useState(false);
+    const [commentError, setCommentError] = useState(null);
     const loadTicketDetail = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -27,9 +34,19 @@ export default function TicketDetail({ ticketId, userId, onBack }) {
             setLoading(false);
         }
     }, [ticketId, userId]);
+    const loadComments = useCallback(async () => {
+        try {
+            const data = await fetchPublicComments(ticketId, userId);
+            setComments(data);
+        }
+        catch (err) {
+            console.error("Failed to load public comments:", err);
+        }
+    }, [ticketId, userId]);
     useEffect(() => {
         loadTicketDetail();
-    }, [loadTicketDetail]);
+        loadComments();
+    }, [loadTicketDetail, loadComments]);
     const activeAttachments = (ticket?.attachments || []).filter((a) => !a.isRemoved);
     const validateFile = (file) => {
         if (activeAttachments.length >= 5) {
@@ -123,6 +140,50 @@ export default function TicketDetail({ ticketId, userId, onBack }) {
             setRemoving(false);
         }
     };
+    const handleIndicateResolved = async () => {
+        setIndicatingResolved(true);
+        setIndicateError(null);
+        try {
+            const res = await indicateTicketResolved(ticketId, userId);
+            setTicket((prev) => prev
+                ? {
+                    ...prev,
+                    requesterResolvedIndicated: res.requesterResolvedIndicated,
+                    requesterResolvedAt: res.requesterResolvedAt,
+                }
+                : null);
+        }
+        catch (err) {
+            setIndicateError(err.message || "Failed to indicate problem resolved");
+        }
+        finally {
+            setIndicatingResolved(false);
+        }
+    };
+    const handlePostComment = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim()) {
+            setCommentError("Comment content is required");
+            return;
+        }
+        if (newComment.trim().length > 2000) {
+            setCommentError("Comment content cannot exceed 2000 characters");
+            return;
+        }
+        setPostingComment(true);
+        setCommentError(null);
+        try {
+            await postPublicComment(ticketId, newComment.trim(), userId);
+            setNewComment("");
+            await loadComments();
+        }
+        catch (err) {
+            setCommentError(err.message || "Failed to post public comment");
+        }
+        finally {
+            setPostingComment(false);
+        }
+    };
     const renderPriorityBadge = (p) => {
         const pLower = (p || "").toLowerCase();
         let badgeClass = "bg-secondary";
@@ -162,7 +223,7 @@ export default function TicketDetail({ ticketId, userId, onBack }) {
                                                                 }) })] }), _jsx("span", { children: "\u2022" }), _jsxs("span", { children: ["Last Updated:", " ", _jsx("strong", { className: "text-dark", "data-testid": "ticket-updated-at", children: new Date(ticket.updatedAt).toLocaleString(undefined, {
                                                                     dateStyle: "medium",
                                                                     timeStyle: "short",
-                                                                }) })] })] })] }), _jsxs("div", { className: "d-flex align-items-center gap-2 flex-wrap", children: [renderPriorityBadge(ticket.requestedPriority), renderStatusPill(ticket.currentStatus)] })] }), _jsxs("div", { className: "row g-3 pt-3", children: [_jsx("div", { className: "col-12 col-md-4", children: _jsxs("div", { className: "p-3 bg-light rounded-3", children: [_jsx("span", { className: "text-muted small d-block mb-1", children: "Category" }), _jsx("strong", { className: "text-dark", "data-testid": "ticket-category", children: ticket.category?.name || "N/A" })] }) }), _jsx("div", { className: "col-12 col-md-4", children: _jsxs("div", { className: "p-3 bg-light rounded-3", children: [_jsx("span", { className: "text-muted small d-block mb-1", children: "Related System" }), _jsx("strong", { className: "text-dark", "data-testid": "ticket-system", children: ticket.relatedSystem?.name || "N/A" })] }) }), _jsx("div", { className: "col-12 col-md-4", children: _jsxs("div", { className: "p-3 bg-light rounded-3", children: [_jsx("span", { className: "text-muted small d-block mb-1", children: "Requester" }), _jsx("strong", { className: "text-dark", children: ticket.requester?.name || "Self" })] }) })] })] }), _jsxs("div", { className: "card border-0 shadow-sm rounded-3 p-4 bg-white", children: [_jsx("h2", { className: "h5 fw-bold text-dark mb-3", children: "Description" }), _jsx("div", { className: "p-3 bg-light rounded-3 text-dark fs-6", style: { whiteSpace: "pre-wrap" }, "data-testid": "ticket-description", children: ticket.description })] }), _jsxs("div", { className: "card border-0 shadow-sm rounded-3 p-4 bg-white", "data-testid": "ticket-attachments-section", children: [_jsxs("div", { className: "d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2", children: [_jsxs("h2", { className: "h5 fw-bold text-dark mb-0", children: ["Attachments (", activeAttachments.length, " / 5 max active)"] }), _jsx("span", { className: "text-muted small", children: "Allowed: JPG, PNG, WEBP, PDF (Max 5MB)" })] }), _jsxs("form", { onSubmit: handleUpload, className: "mb-4 p-3 bg-light rounded-3", children: [_jsxs("div", { className: "row g-2 align-items-center", children: [_jsx("div", { className: "col", children: _jsx("input", { type: "file", className: "form-control", id: "attachmentFileInput", accept: ".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf", onChange: handleFileChange, disabled: uploading || activeAttachments.length >= 5, "data-testid": "upload-attachment-input" }) }), _jsx("div", { className: "col-auto", children: _jsx("button", { type: "submit", className: "btn btn-zen-green", disabled: !selectedFile || uploading || activeAttachments.length >= 5 || Boolean(uploadError), "data-testid": "upload-attachment-btn", children: uploading ? "Uploading..." : "Upload Attachment" }) })] }), uploadError && (_jsx("div", { className: "text-danger small mt-2 fw-medium", "data-testid": "upload-error", children: uploadError }))] }), downloadError && (_jsx("div", { className: "alert alert-danger mb-3 py-2", "data-testid": "download-error", children: downloadError })), ticket.attachments && ticket.attachments.length > 0 ? (_jsx("div", { className: "row g-3", children: ticket.attachments.map((att) => {
+                                                                }) })] })] })] }), _jsxs("div", { className: "d-flex flex-column align-items-md-end gap-2", children: [_jsxs("div", { className: "d-flex align-items-center gap-2 flex-wrap", children: [renderPriorityBadge(ticket.requestedPriority), renderStatusPill(ticket.currentStatus)] }), _jsxs("div", { className: "mt-2", children: [ticket.requesterResolvedIndicated ? (_jsx("span", { className: "badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 fs-6 d-inline-flex align-items-center gap-1", "data-testid": "requester-resolved-badge", children: "\u2713 Problem Appears Resolved by Requester" })) : (_jsx("button", { type: "button", className: "btn btn-outline-success btn-sm fw-medium d-inline-flex align-items-center gap-1", onClick: handleIndicateResolved, disabled: indicatingResolved, "data-testid": "indicate-resolved-btn", children: indicatingResolved ? "Updating..." : "✓ Problem Appears Resolved" })), indicateError && (_jsx("div", { className: "text-danger small mt-1", "data-testid": "indicate-error", children: indicateError }))] })] })] }), _jsxs("div", { className: "row g-3 pt-3", children: [_jsx("div", { className: "col-12 col-md-4", children: _jsxs("div", { className: "p-3 bg-light rounded-3", children: [_jsx("span", { className: "text-muted small d-block mb-1", children: "Category" }), _jsx("strong", { className: "text-dark", "data-testid": "ticket-category", children: ticket.category?.name || "N/A" })] }) }), _jsx("div", { className: "col-12 col-md-4", children: _jsxs("div", { className: "p-3 bg-light rounded-3", children: [_jsx("span", { className: "text-muted small d-block mb-1", children: "Related System" }), _jsx("strong", { className: "text-dark", "data-testid": "ticket-system", children: ticket.relatedSystem?.name || "N/A" })] }) }), _jsx("div", { className: "col-12 col-md-4", children: _jsxs("div", { className: "p-3 bg-light rounded-3", children: [_jsx("span", { className: "text-muted small d-block mb-1", children: "Requester" }), _jsx("strong", { className: "text-dark", children: ticket.requester?.name || "Self" })] }) })] })] }), _jsxs("div", { className: "card border-0 shadow-sm rounded-3 p-4 bg-white", children: [_jsx("h2", { className: "h5 fw-bold text-dark mb-3", children: "Description" }), _jsx("div", { className: "p-3 bg-light rounded-3 text-dark fs-6", style: { whiteSpace: "pre-wrap" }, "data-testid": "ticket-description", children: ticket.description })] }), _jsxs("div", { className: "card border-0 shadow-sm rounded-3 p-4 bg-white", "data-testid": "ticket-attachments-section", children: [_jsxs("div", { className: "d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2", children: [_jsxs("h2", { className: "h5 fw-bold text-dark mb-0", children: ["Attachments (", activeAttachments.length, " / 5 max active)"] }), _jsx("span", { className: "text-muted small", children: "Allowed: JPG, PNG, WEBP, PDF (Max 5MB)" })] }), _jsxs("form", { onSubmit: handleUpload, className: "mb-4 p-3 bg-light rounded-3", children: [_jsxs("div", { className: "row g-2 align-items-center", children: [_jsx("div", { className: "col", children: _jsx("input", { type: "file", className: "form-control", id: "attachmentFileInput", accept: ".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf", onChange: handleFileChange, disabled: uploading || activeAttachments.length >= 5, "data-testid": "upload-attachment-input" }) }), _jsx("div", { className: "col-auto", children: _jsx("button", { type: "submit", className: "btn btn-zen-green", disabled: !selectedFile || uploading || activeAttachments.length >= 5 || Boolean(uploadError), "data-testid": "upload-attachment-btn", children: uploading ? "Uploading..." : "Upload Attachment" }) })] }), uploadError && (_jsx("div", { className: "text-danger small mt-2 fw-medium", "data-testid": "upload-error", children: uploadError }))] }), downloadError && (_jsx("div", { className: "alert alert-danger mb-3 py-2", "data-testid": "download-error", children: downloadError })), ticket.attachments && ticket.attachments.length > 0 ? (_jsx("div", { className: "row g-3", children: ticket.attachments.map((att) => {
                                     const isRemoved = Boolean(att.isRemoved);
                                     return (_jsx("div", { className: "col-12 col-md-6", "data-testid": `attachment-${att.id}`, children: _jsxs("div", { className: `d-flex flex-column justify-content-between p-3 border rounded-3 ${isRemoved ? "bg-light opacity-75 border-dashed" : "bg-light"}`, children: [_jsxs("div", { className: "d-flex align-items-center justify-content-between gap-2 mb-2", children: [_jsxs("div", { className: "d-flex align-items-center gap-2 text-truncate me-2", children: [_jsx("span", { className: "fs-4", children: isRemoved ? "🚫" : "📎" }), _jsxs("div", { className: "text-truncate", children: [_jsx("span", { className: `d-block fw-medium text-truncate ${isRemoved ? "text-muted text-decoration-line-through" : "text-dark"}`, children: att.originalFileName }), _jsx("span", { className: "text-muted small", children: formatFileSize(att.fileSize) })] })] }), isRemoved ? (_jsx("span", { className: "badge bg-secondary", "data-testid": `removed-badge-${att.id}`, children: "Soft Removed" })) : (_jsx("span", { className: "badge bg-success bg-opacity-10 text-success border border-success border-opacity-25", children: "Active" }))] }), isRemoved ? (_jsxs("div", { className: "mt-2 pt-2 border-top text-muted small", "data-testid": `removed-metadata-${att.id}`, children: [_jsxs("div", { children: [_jsx("strong", { children: "Reason:" }), " ", _jsx("span", { "data-testid": `removal-reason-${att.id}`, children: att.removalReason || "No reason provided" })] }), att.removedAt && (_jsxs("div", { children: [_jsx("strong", { children: "Removed on:" }), " ", new Date(att.removedAt).toLocaleString()] })), _jsx("div", { className: "mt-2", children: _jsx("button", { type: "button", className: "btn btn-sm btn-outline-secondary w-100", disabled: true, "data-testid": `download-attachment-${att.id}`, children: "Download Blocked" }) })] })) : (
                                                 /* Active Actions */
@@ -171,5 +232,17 @@ export default function TicketDetail({ ticketId, userId, onBack }) {
                                                                 setRemovalReason("");
                                                                 setRemovalError(null);
                                                             }, "data-testid": `remove-attachment-${att.id}`, children: "Remove" })] }))] }) }, att.id));
-                                }) })) : (_jsx("p", { className: "text-muted mb-0", children: "No attachments uploaded yet." }))] })] })) : null, removingAttachment && (_jsx("div", { className: "modal d-block bg-dark bg-opacity-50", tabIndex: -1, "data-testid": "removal-modal", children: _jsx("div", { className: "modal-dialog modal-dialog-centered", children: _jsxs("div", { className: "modal-content shadow-lg border-0 rounded-3", children: [_jsxs("div", { className: "modal-header border-bottom-0 pb-0", children: [_jsx("h5", { className: "modal-title fw-bold text-dark", children: "Remove Attachment" }), _jsx("button", { type: "button", className: "btn-close", onClick: () => setRemovingAttachment(null), "data-testid": "close-removal-modal-btn" })] }), _jsxs("div", { className: "modal-body py-3", children: [_jsxs("p", { className: "text-secondary mb-3", children: ["Are you sure you want to soft-remove ", _jsx("strong", { children: removingAttachment.originalFileName }), "?"] }), _jsxs("div", { className: "mb-3", children: [_jsxs("label", { htmlFor: "removalReasonInput", className: "form-label fw-medium text-dark", children: ["Reason for removal ", _jsx("span", { className: "text-danger", children: "*" })] }), _jsx("textarea", { id: "removalReasonInput", className: "form-control", rows: 3, value: removalReason, onChange: (e) => setRemovalReason(e.target.value), placeholder: "Enter the reason for soft removing this attachment...", "data-testid": "removal-reason-input" })] }), removalError && (_jsx("div", { className: "alert alert-danger mb-0 py-2 small", "data-testid": "removal-error", children: removalError }))] }), _jsxs("div", { className: "modal-footer border-top-0 pt-0", children: [_jsx("button", { type: "button", className: "btn btn-outline-secondary", onClick: () => setRemovingAttachment(null), children: "Cancel" }), _jsx("button", { type: "button", className: "btn btn-danger", onClick: handleConfirmRemoval, disabled: removing, "data-testid": "confirm-remove-btn", children: removing ? "Removing..." : "Confirm Removal" })] })] }) }) }))] }));
+                                }) })) : (_jsx("p", { className: "text-muted mb-0", children: "No attachments uploaded yet." }))] }), _jsxs("div", { className: "card border-0 shadow-sm rounded-3 p-4 bg-white", "data-testid": "public-comments-section", children: [_jsxs("div", { className: "d-flex justify-content-between align-items-center mb-3", children: [_jsxs("h2", { className: "h5 fw-bold text-dark mb-0", children: ["Public Comments (", comments.length, ")"] }), _jsx("span", { className: "badge bg-light text-secondary border", children: "Append-Only" })] }), _jsx("div", { className: "d-flex flex-column gap-3 mb-4", children: comments.length > 0 ? (comments.map((c) => (_jsxs("div", { className: "p-3 bg-light rounded-3 border", "data-testid": `comment-${c.id}`, children: [_jsxs("div", { className: "d-flex justify-content-between align-items-center mb-2", children: [_jsxs("div", { className: "d-flex align-items-center gap-2", children: [_jsx("strong", { className: "text-dark", children: c.author?.name || "User" }), _jsx("span", { className: `badge ${c.author?.role === "IT_STAFF"
+                                                                ? "bg-primary"
+                                                                : c.author?.role === "ADMINISTRATOR"
+                                                                    ? "bg-danger"
+                                                                    : "bg-secondary"} bg-opacity-10 text-${c.author?.role === "IT_STAFF"
+                                                                ? "primary"
+                                                                : c.author?.role === "ADMINISTRATOR"
+                                                                    ? "danger"
+                                                                    : "secondary"} border border-opacity-25 small`, children: c.author?.role || "REQUESTER" })] }), _jsx("span", { className: "text-muted small", children: new Date(c.createdAt).toLocaleString() })] }), _jsx("p", { className: "text-dark mb-0", style: { whiteSpace: "pre-wrap" }, children: c.content })] }, c.id)))) : (_jsx("p", { className: "text-muted mb-0", children: "No public comments yet." })) }), _jsxs("form", { onSubmit: handlePostComment, className: "pt-3 border-top", children: [_jsxs("div", { className: "mb-3", children: [_jsx("label", { htmlFor: "publicCommentInput", className: "form-label fw-semibold text-dark", children: "Add a Public Comment" }), _jsx("textarea", { id: "publicCommentInput", className: "form-control", rows: 3, value: newComment, onChange: (e) => {
+                                                    setNewComment(e.target.value);
+                                                    if (commentError)
+                                                        setCommentError(null);
+                                                }, placeholder: "Type a public message visible to IT Staff and yourself...", maxLength: 2000, "data-testid": "comment-input" }), _jsx("div", { className: "d-flex justify-content-between text-muted small mt-1", children: _jsxs("span", { children: [2000 - newComment.length, " characters remaining"] }) })] }), commentError && (_jsx("div", { className: "alert alert-danger py-2 small mb-3", "data-testid": "comment-error", children: commentError })), _jsx("div", { className: "d-flex justify-content-end", children: _jsx("button", { type: "submit", className: "btn btn-zen-green", disabled: !newComment.trim() || postingComment, "data-testid": "post-comment-btn", children: postingComment ? "Posting..." : "Post Comment" }) })] })] })] })) : null, removingAttachment && (_jsx("div", { className: "modal d-block bg-dark bg-opacity-50", tabIndex: -1, "data-testid": "removal-modal", children: _jsx("div", { className: "modal-dialog modal-dialog-centered", children: _jsxs("div", { className: "modal-content shadow-lg border-0 rounded-3", children: [_jsxs("div", { className: "modal-header border-bottom-0 pb-0", children: [_jsx("h5", { className: "modal-title fw-bold text-dark", children: "Remove Attachment" }), _jsx("button", { type: "button", className: "btn-close", onClick: () => setRemovingAttachment(null), "data-testid": "close-removal-modal-btn" })] }), _jsxs("div", { className: "modal-body py-3", children: [_jsxs("p", { className: "text-secondary mb-3", children: ["Are you sure you want to soft-remove ", _jsx("strong", { children: removingAttachment.originalFileName }), "?"] }), _jsxs("div", { className: "mb-3", children: [_jsxs("label", { htmlFor: "removalReasonInput", className: "form-label fw-medium text-dark", children: ["Reason for removal ", _jsx("span", { className: "text-danger", children: "*" })] }), _jsx("textarea", { id: "removalReasonInput", className: "form-control", rows: 3, value: removalReason, onChange: (e) => setRemovalReason(e.target.value), placeholder: "Enter the reason for soft removing this attachment...", "data-testid": "removal-reason-input" })] }), removalError && (_jsx("div", { className: "alert alert-danger mb-0 py-2 small", "data-testid": "removal-error", children: removalError }))] }), _jsxs("div", { className: "modal-footer border-top-0 pt-0", children: [_jsx("button", { type: "button", className: "btn btn-outline-secondary", onClick: () => setRemovingAttachment(null), children: "Cancel" }), _jsx("button", { type: "button", className: "btn btn-danger", onClick: handleConfirmRemoval, disabled: removing, "data-testid": "confirm-remove-btn", children: removing ? "Removing..." : "Confirm Removal" })] })] }) }) }))] }));
 }

@@ -6,6 +6,10 @@ import {
   uploadAttachment,
   downloadAttachment,
   removeAttachment,
+  indicateTicketResolved,
+  fetchPublicComments,
+  postPublicComment,
+  PublicComment,
 } from "../api.js";
 
 interface TicketDetailProps {
@@ -29,6 +33,15 @@ export default function TicketDetail({ ticketId, userId, onBack }: TicketDetailP
   const [removalError, setRemovalError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
+  // BR-05 & BR-09 State
+  const [indicatingResolved, setIndicatingResolved] = useState<boolean>(false);
+  const [indicateError, setIndicateError] = useState<string | null>(null);
+
+  const [comments, setComments] = useState<PublicComment[]>([]);
+  const [newComment, setNewComment] = useState<string>("");
+  const [postingComment, setPostingComment] = useState<boolean>(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
   const loadTicketDetail = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -42,9 +55,19 @@ export default function TicketDetail({ ticketId, userId, onBack }: TicketDetailP
     }
   }, [ticketId, userId]);
 
+  const loadComments = useCallback(async () => {
+    try {
+      const data = await fetchPublicComments(ticketId, userId);
+      setComments(data);
+    } catch (err: any) {
+      console.error("Failed to load public comments:", err);
+    }
+  }, [ticketId, userId]);
+
   useEffect(() => {
     loadTicketDetail();
-  }, [loadTicketDetail]);
+    loadComments();
+  }, [loadTicketDetail, loadComments]);
 
   const activeAttachments = (ticket?.attachments || []).filter((a) => !a.isRemoved);
 
@@ -133,6 +156,50 @@ export default function TicketDetail({ ticketId, userId, onBack }: TicketDetailP
       setRemovalError(err.message || "Failed to remove attachment");
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const handleIndicateResolved = async () => {
+    setIndicatingResolved(true);
+    setIndicateError(null);
+    try {
+      const res = await indicateTicketResolved(ticketId, userId);
+      setTicket((prev) =>
+        prev
+          ? {
+              ...prev,
+              requesterResolvedIndicated: res.requesterResolvedIndicated,
+              requesterResolvedAt: res.requesterResolvedAt,
+            }
+          : null
+      );
+    } catch (err: any) {
+      setIndicateError(err.message || "Failed to indicate problem resolved");
+    } finally {
+      setIndicatingResolved(false);
+    }
+  };
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) {
+      setCommentError("Comment content is required");
+      return;
+    }
+    if (newComment.trim().length > 2000) {
+      setCommentError("Comment content cannot exceed 2000 characters");
+      return;
+    }
+    setPostingComment(true);
+    setCommentError(null);
+    try {
+      await postPublicComment(ticketId, newComment.trim(), userId);
+      setNewComment("");
+      await loadComments();
+    } catch (err: any) {
+      setCommentError(err.message || "Failed to post public comment");
+    } finally {
+      setPostingComment(false);
     }
   };
 
@@ -261,10 +328,39 @@ export default function TicketDetail({ ticketId, userId, onBack }: TicketDetailP
                 </div>
               </div>
 
-              {/* Status & Priority Badges */}
-              <div className="d-flex align-items-center gap-2 flex-wrap">
-                {renderPriorityBadge(ticket.requestedPriority)}
-                {renderStatusPill(ticket.currentStatus)}
+              {/* Status, Priority & Resolution Indication */}
+              <div className="d-flex flex-column align-items-md-end gap-2">
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  {renderPriorityBadge(ticket.requestedPriority)}
+                  {renderStatusPill(ticket.currentStatus)}
+                </div>
+
+                {/* BR-05: Indicate Problem Appears Resolved Control */}
+                <div className="mt-2">
+                  {ticket.requesterResolvedIndicated ? (
+                    <span
+                      className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 fs-6 d-inline-flex align-items-center gap-1"
+                      data-testid="requester-resolved-badge"
+                    >
+                      ✓ Problem Appears Resolved by Requester
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline-success btn-sm fw-medium d-inline-flex align-items-center gap-1"
+                      onClick={handleIndicateResolved}
+                      disabled={indicatingResolved}
+                      data-testid="indicate-resolved-btn"
+                    >
+                      {indicatingResolved ? "Updating..." : "✓ Problem Appears Resolved"}
+                    </button>
+                  )}
+                  {indicateError && (
+                    <div className="text-danger small mt-1" data-testid="indicate-error">
+                      {indicateError}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -455,6 +551,96 @@ export default function TicketDetail({ ticketId, userId, onBack }: TicketDetailP
             ) : (
               <p className="text-muted mb-0">No attachments uploaded yet.</p>
             )}
+          </div>
+
+          {/* BR-09: Public Comments Section */}
+          <div className="card border-0 shadow-sm rounded-3 p-4 bg-white" data-testid="public-comments-section">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h2 className="h5 fw-bold text-dark mb-0">
+                Public Comments ({comments.length})
+              </h2>
+              <span className="badge bg-light text-secondary border">Append-Only</span>
+            </div>
+
+            {/* Comments List */}
+            <div className="d-flex flex-column gap-3 mb-4">
+              {comments.length > 0 ? (
+                comments.map((c) => (
+                  <div key={c.id} className="p-3 bg-light rounded-3 border" data-testid={`comment-${c.id}`}>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <strong className="text-dark">{c.author?.name || "User"}</strong>
+                        <span
+                          className={`badge ${
+                            c.author?.role === "IT_STAFF"
+                              ? "bg-primary"
+                              : c.author?.role === "ADMINISTRATOR"
+                              ? "bg-danger"
+                              : "bg-secondary"
+                          } bg-opacity-10 text-${
+                            c.author?.role === "IT_STAFF"
+                              ? "primary"
+                              : c.author?.role === "ADMINISTRATOR"
+                              ? "danger"
+                              : "secondary"
+                          } border border-opacity-25 small`}
+                        >
+                          {c.author?.role || "REQUESTER"}
+                        </span>
+                      </div>
+                      <span className="text-muted small">
+                        {new Date(c.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-dark mb-0" style={{ whiteSpace: "pre-wrap" }}>
+                      {c.content}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted mb-0">No public comments yet.</p>
+              )}
+            </div>
+
+            {/* Post Public Comment Form */}
+            <form onSubmit={handlePostComment} className="pt-3 border-top">
+              <div className="mb-3">
+                <label htmlFor="publicCommentInput" className="form-label fw-semibold text-dark">
+                  Add a Public Comment
+                </label>
+                <textarea
+                  id="publicCommentInput"
+                  className="form-control"
+                  rows={3}
+                  value={newComment}
+                  onChange={(e) => {
+                    setNewComment(e.target.value);
+                    if (commentError) setCommentError(null);
+                  }}
+                  placeholder="Type a public message visible to IT Staff and yourself..."
+                  maxLength={2000}
+                  data-testid="comment-input"
+                />
+                <div className="d-flex justify-content-between text-muted small mt-1">
+                  <span>{2000 - newComment.length} characters remaining</span>
+                </div>
+              </div>
+              {commentError && (
+                <div className="alert alert-danger py-2 small mb-3" data-testid="comment-error">
+                  {commentError}
+                </div>
+              )}
+              <div className="d-flex justify-content-end">
+                <button
+                  type="submit"
+                  className="btn btn-zen-green"
+                  disabled={!newComment.trim() || postingComment}
+                  data-testid="post-comment-btn"
+                >
+                  {postingComment ? "Posting..." : "Post Comment"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
