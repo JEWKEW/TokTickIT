@@ -511,6 +511,165 @@ app.get("/api/tickets", authenticateToken, enforcePasswordChange, handleGetTicke
 app.get("/api/tickets/my", authenticateToken, enforcePasswordChange, handleGetTickets);
 
 // ---------------------------------------------------------------------------
+// ISSUE-05 (Lab 03): IT Staff Ticket Queue - GET /api/tickets/queue
+// ---------------------------------------------------------------------------
+const handleGetQueue = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    const userRole = req.user.role || "REQUESTER";
+    if (userRole !== "IT_STAFF" && userRole !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied. IT Staff or Administrator role required.",
+        },
+      });
+    }
+
+    const search = (req.query.q || req.query.search || "").toString().trim();
+    const status = (req.query.status || "").toString().trim();
+    const requestedPriority = (req.query.requestedPriority || "").toString().trim();
+    const itPriority = (req.query.itPriority || req.query.priority || "").toString().trim();
+    const categoryParam = (req.query.categoryId || req.query.category || "").toString().trim();
+    const ownerIdParam = (req.query.ownerId || "").toString().trim();
+
+    const rawSort = (req.query.sortBy || req.query.sort || "createdAt").toString();
+    const rawOrder = (req.query.sortOrder || req.query.order || "desc").toString().toLowerCase();
+    const order: "asc" | "desc" = rawOrder === "asc" ? "asc" : "desc";
+
+    const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+    const rawLimit = parseInt(String(req.query.limit || req.query.pageSize || "10"), 10) || 10;
+    const limit = Math.min(50, Math.max(1, rawLimit));
+
+    const whereClause: any = {};
+
+    if (search) {
+      whereClause.OR = [
+        { ticketNumber: { contains: search, mode: "insensitive" } },
+        { summary: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    if (status && status.toLowerCase() !== "all") {
+      whereClause.currentStatus = {
+        equals: status,
+        mode: "insensitive",
+      };
+    }
+
+    if (requestedPriority && requestedPriority.toLowerCase() !== "all") {
+      whereClause.requestedPriority = {
+        equals: requestedPriority,
+        mode: "insensitive",
+      };
+    }
+
+    if (itPriority && itPriority.toLowerCase() !== "all") {
+      whereClause.itPriority = {
+        equals: itPriority,
+        mode: "insensitive",
+      };
+    }
+
+    if (categoryParam && categoryParam.toLowerCase() !== "all") {
+      const parsedCatId = parseInt(categoryParam, 10);
+      if (!isNaN(parsedCatId)) {
+        whereClause.categoryId = parsedCatId;
+      } else {
+        whereClause.category = {
+          name: { equals: categoryParam, mode: "insensitive" },
+        };
+      }
+    }
+
+    if (ownerIdParam && ownerIdParam.toLowerCase() !== "all") {
+      if (ownerIdParam.toLowerCase() === "unassigned") {
+        whereClause.ownerId = null;
+      } else {
+        const parsedOwnerId = parseInt(ownerIdParam, 10);
+        if (!isNaN(parsedOwnerId)) {
+          whereClause.ownerId = parsedOwnerId;
+        }
+      }
+    }
+
+    let orderBy: any = {};
+    const fieldMap: Record<string, string> = {
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+      ticketNumber: "ticketNumber",
+      summary: "summary",
+      requestedPriority: "requestedPriority",
+      itPriority: "itPriority",
+      status: "currentStatus",
+      currentStatus: "currentStatus",
+    };
+
+    const sortField = fieldMap[rawSort] || "createdAt";
+    orderBy[sortField] = order;
+
+    const skip = (page - 1) * limit;
+
+    const prisma = getPrisma();
+    const [items, totalItems] = await Promise.all([
+      prisma.ticket.findMany({
+        where: whereClause,
+        orderBy,
+        skip,
+        take: limit,
+        include: {
+          category: { select: { id: true, name: true } },
+          relatedSystem: { select: { id: true, name: true } },
+          requester: { select: { id: true, name: true, email: true } },
+          owner: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.ticket.count({ where: whereClause }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit) || 1;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        items,
+        meta: {
+          currentPage: page,
+          totalPages,
+          pageSize: limit,
+          limit,
+          totalItems,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("Fetch IT queue error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve IT staff ticket queue",
+      },
+    });
+  }
+};
+
+app.get("/api/tickets/queue", authenticateToken, enforcePasswordChange, handleGetQueue);
+
+
+// ---------------------------------------------------------------------------
 // ISSUE-06: GET /api/tickets/:id
 // ---------------------------------------------------------------------------
 app.get("/api/tickets/:id", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {

@@ -30,17 +30,20 @@ export interface Ticket {
   itPriority?: string;
   currentStatus: string;
   requesterId: number;
+  ownerId?: number | null;
   categoryId: number;
   relatedSystemId: number;
   category?: Category;
   relatedSystem?: RelatedSystem;
   requester?: Requester;
+  owner?: { id: number; name: string; email: string } | null;
   attachments?: Attachment[];
   requesterResolvedIndicated?: boolean;
   requesterResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface PublicComment {
   id: number;
@@ -361,5 +364,82 @@ export async function postPublicComment(
 
   return data.data;
 }
+
+export interface StaffQueueFilterParams {
+  q?: string;
+  search?: string;
+  status?: string;
+  requestedPriority?: string;
+  itPriority?: string;
+  priority?: string;
+  categoryId?: number | string;
+  category?: string;
+  ownerId?: number | string;
+  sort?: string;
+  sortBy?: string;
+  order?: "asc" | "desc";
+  sortOrder?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+}
+
+export async function fetchTicketQueue(
+  params: StaffQueueFilterParams = {},
+  tokenOrUserId?: string | number
+): Promise<PaginatedTickets> {
+  const queryParams = new URLSearchParams();
+  const searchVal = params.q || params.search;
+  if (searchVal) queryParams.set("q", searchVal);
+  if (params.status && params.status !== "all") queryParams.set("status", params.status);
+  if (params.requestedPriority && params.requestedPriority !== "all") queryParams.set("requestedPriority", params.requestedPriority);
+  const itPrio = params.itPriority || params.priority;
+  if (itPrio && itPrio !== "all") queryParams.set("itPriority", itPrio);
+  if (params.categoryId && params.categoryId !== "all") queryParams.set("categoryId", String(params.categoryId));
+  if (params.ownerId !== undefined && params.ownerId !== "" && params.ownerId !== "all") queryParams.set("ownerId", String(params.ownerId));
+
+  const sortVal = params.sortBy || params.sort;
+  if (sortVal) queryParams.set("sortBy", sortVal);
+  const orderVal = params.sortOrder || params.order;
+  if (orderVal) queryParams.set("sortOrder", orderVal);
+  if (params.page) queryParams.set("page", String(params.page));
+  if (params.limit) queryParams.set("limit", String(params.limit));
+
+  const url = `${API_URL}/api/tickets/queue?${queryParams.toString()}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (typeof tokenOrUserId === "number") {
+    headers["x-user-id"] = tokenOrUserId.toString();
+  } else if (typeof tokenOrUserId === "string" && tokenOrUserId) {
+    if (tokenOrUserId.startsWith("Bearer ") || tokenOrUserId.length > 20) {
+      headers["Authorization"] = tokenOrUserId.startsWith("Bearer ") ? tokenOrUserId : `Bearer ${tokenOrUserId}`;
+    } else {
+      headers["x-user-id"] = tokenOrUserId;
+    }
+  } else {
+    const savedToken = sessionStorage.getItem("token") || localStorage.getItem("token");
+    const savedUserId = sessionStorage.getItem("x-user-id");
+    if (savedToken) {
+      headers["Authorization"] = `Bearer ${savedToken}`;
+    } else if (savedUserId) {
+      headers["x-user-id"] = savedUserId;
+    }
+  }
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve IT Staff ticket queue");
+  }
+
+  return data.data;
+}
+
 
 
