@@ -760,6 +760,342 @@ app.get("/api/tickets/:id", authenticateToken, enforcePasswordChange, async (req
 });
 
 // ---------------------------------------------------------------------------
+// ISSUE-06: PATCH /api/tickets/:id/assign - Claim / Reassign Ticket Owner
+// ---------------------------------------------------------------------------
+app.patch("/api/tickets/:id/assign", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    if (req.user.role !== "IT_STAFF" && req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: IT Staff or Administrator role required",
+        },
+      });
+    }
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    const { ownerId } = req.body || {};
+    let targetOwnerId: number | null = null;
+
+    if (ownerId !== null && ownerId !== undefined) {
+      targetOwnerId = parseInt(String(ownerId), 10);
+      if (isNaN(targetOwnerId)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid owner ID provided",
+          },
+        });
+      }
+
+      // BR-08: Check owner is active IT Staff or Admin
+      const userModel = (prisma as any).user || (prisma as any).requesterUser;
+      const targetUser = await userModel.findUnique({
+        where: { id: targetOwnerId },
+      });
+
+      if (!targetUser || !targetUser.isActive || (targetUser.role !== "IT_STAFF" && targetUser.role !== "ADMINISTRATOR")) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Ticket owner must be an active IT Staff or Administrator user",
+          },
+        });
+      }
+    }
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { ownerId: targetOwnerId },
+      include: {
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+        requester: { select: { id: true, name: true, email: true } },
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: updatedTicket,
+    });
+  } catch (error: any) {
+    console.error("Assign ticket owner error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to assign ticket owner",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ISSUE-06: PATCH /api/tickets/:id/it-priority - Update IT Priority
+// ---------------------------------------------------------------------------
+app.patch("/api/tickets/:id/it-priority", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    if (req.user.role !== "IT_STAFF" && req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: IT Staff or Administrator role required",
+        },
+      });
+    }
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const { itPriority } = req.body || {};
+    const validPriorities = ["low", "medium", "high", "urgent"];
+    if (!itPriority || typeof itPriority !== "string" || !validPriorities.includes(itPriority.trim().toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "IT Priority must be Low, Medium, High, or Urgent",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    const formattedPriority =
+      itPriority.trim().charAt(0).toUpperCase() + itPriority.trim().slice(1).toLowerCase();
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { itPriority: formattedPriority },
+      include: {
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+        requester: { select: { id: true, name: true, email: true } },
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: updatedTicket,
+    });
+  } catch (error: any) {
+    console.error("Update IT Priority error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update IT Priority",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ISSUE-06: PATCH /api/tickets/:id/status - Update Ticket Status (BR-07)
+// ---------------------------------------------------------------------------
+app.patch("/api/tickets/:id/status", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
+    if (req.user.role !== "IT_STAFF" && req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: IT Staff or Administrator role required",
+        },
+      });
+    }
+
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
+    }
+
+    const { status: targetStatus } = req.body || {};
+    if (!targetStatus || typeof targetStatus !== "string" || targetStatus.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Valid status is required",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    // BR-07 Status Transition Matrix
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+      "new": ["open", "in progress", "in_progress", "cancelled"],
+      "open": ["in progress", "in_progress", "waiting for requester", "waiting_for_requester", "resolved", "cancelled"],
+      "in progress": ["waiting for requester", "waiting_for_requester", "resolved", "cancelled"],
+      "in_progress": ["waiting for requester", "waiting_for_requester", "resolved", "cancelled"],
+      "waiting for requester": ["in progress", "in_progress", "resolved", "cancelled"],
+      "waiting_for_requester": ["in progress", "in_progress", "resolved", "cancelled"],
+      "resolved": ["closed", "reopened"],
+      "reopened": ["in progress", "in_progress", "resolved", "cancelled"],
+      "closed": [],
+      "cancelled": [],
+    };
+
+    const currentKey = ticket.currentStatus.trim().toLowerCase();
+    const targetKey = targetStatus.trim().toLowerCase();
+
+    const allowedNext = ALLOWED_TRANSITIONS[currentKey] || [];
+    if (!allowedNext.includes(targetKey)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `Invalid status transition from '${ticket.currentStatus}' to '${targetStatus}'`,
+        },
+      });
+    }
+
+    // Standardize status representation
+    const statusDisplayMap: Record<string, string> = {
+      "new": "New",
+      "open": "Open",
+      "in progress": "In Progress",
+      "in_progress": "In Progress",
+      "waiting for requester": "Waiting for Requester",
+      "waiting_for_requester": "Waiting for Requester",
+      "resolved": "Resolved",
+      "closed": "Closed",
+      "reopened": "Reopened",
+      "cancelled": "Cancelled",
+    };
+
+    const formattedStatus = statusDisplayMap[targetKey] || targetStatus.trim();
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { currentStatus: formattedStatus },
+      include: {
+        category: { select: { id: true, name: true } },
+        relatedSystem: { select: { id: true, name: true } },
+        requester: { select: { id: true, name: true, email: true } },
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: updatedTicket,
+    });
+  } catch (error: any) {
+    console.error("Update ticket status error:", error);
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update ticket status",
+      },
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // ISSUE-07: POST /api/tickets/:id/attachments - Upload attachment
 // ---------------------------------------------------------------------------
 app.post("/api/tickets/:id/attachments", authenticateToken, enforcePasswordChange, uploadMiddleware, async (req: AuthRequest, res: Response) => {

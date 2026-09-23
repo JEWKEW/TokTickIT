@@ -281,3 +281,94 @@ export async function fetchTicketQueue(params = {}, tokenOrUserId) {
     }
     return data.data;
 }
+function buildAuthHeaders(tokenOrUserId) {
+    const headers = {
+        "Content-Type": "application/json",
+    };
+    if (typeof tokenOrUserId === "number") {
+        headers["x-user-id"] = tokenOrUserId.toString();
+    }
+    else if (typeof tokenOrUserId === "string" && tokenOrUserId) {
+        if (tokenOrUserId.startsWith("Bearer ") || tokenOrUserId.length > 20) {
+            headers["Authorization"] = tokenOrUserId.startsWith("Bearer ") ? tokenOrUserId : `Bearer ${tokenOrUserId}`;
+        }
+        else {
+            headers["x-user-id"] = tokenOrUserId;
+        }
+    }
+    else {
+        const savedToken = sessionStorage.getItem("token") || localStorage.getItem("token");
+        const savedUserId = sessionStorage.getItem("x-user-id");
+        if (savedToken) {
+            headers["Authorization"] = `Bearer ${savedToken}`;
+        }
+        else if (savedUserId) {
+            headers["x-user-id"] = savedUserId;
+        }
+    }
+    return headers;
+}
+export async function assignTicketOwner(ticketId, ownerId, tokenOrUserId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/assign`;
+    const res = await fetch(url, {
+        method: "PATCH",
+        headers: buildAuthHeaders(tokenOrUserId),
+        body: JSON.stringify({ ownerId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to assign ticket owner");
+    }
+    return data.data;
+}
+export async function updateITPriority(ticketId, itPriority, tokenOrUserId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/it-priority`;
+    const res = await fetch(url, {
+        method: "PATCH",
+        headers: buildAuthHeaders(tokenOrUserId),
+        body: JSON.stringify({ itPriority }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to update IT Priority");
+    }
+    return data.data;
+}
+export async function updateTicketStatus(ticketId, status, tokenOrUserId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/status`;
+    const res = await fetch(url, {
+        method: "PATCH",
+        headers: buildAuthHeaders(tokenOrUserId),
+        body: JSON.stringify({ status }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to update ticket status");
+    }
+    return data.data;
+}
+export async function fetchInternalNotes(ticketId, tokenOrUserId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/internal-notes`;
+    const res = await fetch(url, {
+        method: "GET",
+        headers: buildAuthHeaders(tokenOrUserId),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to retrieve internal notes");
+    }
+    return data.data;
+}
+export async function postInternalNote(ticketId, content, tokenOrUserId) {
+    const url = `${API_URL}/api/tickets/${ticketId}/internal-notes`;
+    const res = await fetch(url, {
+        method: "POST",
+        headers: buildAuthHeaders(tokenOrUserId),
+        body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        throw new Error(data?.error?.message || "Failed to post internal note");
+    }
+    return data.data;
+}
