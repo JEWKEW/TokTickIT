@@ -8,14 +8,19 @@ import {
 } from "../api.js";
 
 interface StaffTicketQueueProps {
-  userId: number;
+  userId?: number;
+  tokenOrUserId?: number;
+  userRole?: string;
   onSelectTicket: (ticketId: number) => void;
 }
 
 export default function StaffTicketQueue({
   userId,
+  tokenOrUserId,
+  userRole,
   onSelectTicket,
 }: StaffTicketQueueProps) {
+  const effectiveUserId = userId || tokenOrUserId || 1;
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
     currentPage: 1,
@@ -39,6 +44,7 @@ export default function StaffTicketQueue({
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState<number>(1);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
 
   useEffect(() => {
     fetchCategories()
@@ -62,7 +68,7 @@ export default function StaffTicketQueue({
           page,
           limit: 10,
         },
-        userId
+        effectiveUserId
       );
       const fetchedItems = data?.items || [];
       const fetchedMeta = data?.meta || {
@@ -121,102 +127,108 @@ export default function StaffTicketQueue({
     setPage(1);
   }
 
-  function renderStatusBadge(status: string) {
-    let badgeClass = "badge bg-secondary";
-    switch (status) {
-      case "New":
-        badgeClass = "badge bg-info text-dark";
-        break;
-      case "Open":
-        badgeClass = "badge bg-primary";
-        break;
-      case "In Progress":
-        badgeClass = "badge bg-warning text-dark";
-        break;
-      case "Waiting for Requester":
-        badgeClass = "badge bg-secondary";
-        break;
-      case "Resolved":
-        badgeClass = "badge bg-success";
-        break;
-      case "Closed":
-        badgeClass = "badge bg-dark";
-        break;
-      case "Reopened":
-        badgeClass = "badge bg-danger";
-        break;
-      case "Cancelled":
-        badgeClass = "badge bg-light text-dark border";
-        break;
+  function formatDate(isoString: string) {
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return isoString;
     }
-    return <span className={badgeClass}>{status}</span>;
+  }
+
+  function renderStatusBadge(status: string) {
+    const s = (status || "").toLowerCase().trim();
+    let pillClass = "pill-badge pill-status-open";
+    if (s === "in progress" || s === "in_progress") {
+      pillClass = "pill-badge pill-status-in-progress";
+    } else if (s === "resolved") {
+      pillClass = "pill-badge pill-status-resolved";
+    } else if (s === "pending" || s === "waiting for requester") {
+      pillClass = "pill-badge pill-status-pending";
+    } else if (s === "closed") {
+      pillClass = "pill-badge pill-status-closed";
+    } else if (s === "open" || s === "new") {
+      pillClass = "pill-badge pill-status-open";
+    }
+    return <span className={pillClass}>{status}</span>;
   }
 
   function renderPriorityBadge(priority?: string) {
-    if (!priority) return <span className="text-muted small">N/A</span>;
-    let badgeClass = "badge bg-secondary";
-    switch (priority) {
-      case "Urgent":
-        badgeClass = "badge bg-danger";
-        break;
-      case "High":
-        badgeClass = "badge bg-danger text-wrap";
-        break;
-      case "Medium":
-        badgeClass = "badge bg-warning text-dark";
-        break;
-      case "Low":
-        badgeClass = "badge bg-info text-dark";
-        break;
+    if (!priority) return <span className="text-muted small">-</span>;
+    const p = priority.toLowerCase().trim();
+    let pillClass = "pill-badge pill-priority-low";
+    if (p === "high" || p === "urgent") {
+      pillClass = "pill-badge pill-priority-high";
+    } else if (p === "medium") {
+      pillClass = "pill-badge pill-priority-medium";
+    } else {
+      pillClass = "pill-badge pill-priority-low";
     }
-    return <span className={badgeClass}>{priority}</span>;
+    return <span className={pillClass}>{priority}</span>;
   }
 
+  const startItem = meta.totalItems === 0 ? 0 : (meta.currentPage - 1) * meta.limit + 1;
+  const endItem = Math.min(meta.currentPage * meta.limit, meta.totalItems);
+
   return (
-    <div className="container-fluid py-4" data-testid="ticket-queue-container">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <h1 className="h4 text-zen-green mb-1 fw-bold">IT Staff Ticket Queue</h1>
-          <p className="text-muted small mb-0">
-            Manage incoming tickets, claim ownership, update priorities, and handle workflows.
-          </p>
+    <div className="container py-3 px-3 px-md-4" style={{ maxWidth: 1140 }} data-testid="ticket-queue-container">
+      {/* Top Search Bar with Filters Button (Image 3) */}
+      <div className="d-flex flex-column gap-2 mb-3">
+        <div className="d-flex gap-2 align-items-center">
+          <div className="position-relative flex-grow-1">
+            <span
+              className="position-absolute text-muted"
+              style={{ top: "50%", transform: "translateY(-50%)", left: "11px", fontSize: "0.85rem" }}
+            >
+              🔍
+            </span>
+            <input
+              id="queue-search"
+              type="text"
+              className="form-control form-control-sm bg-white"
+              style={{
+                paddingLeft: "32px",
+                borderColor: "#e2e8f0",
+              }}
+              placeholder="Search by ticket number or summary..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              data-testid="queue-search-input"
+            />
+          </div>
+
+          <button
+            type="button"
+            className={`btn btn-sm d-flex align-items-center gap-1.5 rounded-2 px-2.5 ${
+              showFilters ? "btn-zen-green" : "btn-outline-secondary bg-white"
+            }`}
+            style={{ borderColor: "#e2e8f0" }}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <span>☵</span>
+            <span className="fw-medium">Filters</span>
+          </button>
         </div>
-        <span className="badge bg-success fs-6" data-testid="total-tickets-count">
-          Total: {meta.totalItems}
-        </span>
-      </div>
 
-      {/* Filter and Search Bar */}
-      <div className="card shadow-sm border-0 mb-4 bg-white rounded-3">
-        <div className="card-body">
-          <div className="row g-3">
-            {/* Search Input */}
-            <div className="col-12 col-md-4">
-              <label htmlFor="queue-search" className="form-label small fw-bold text-muted">
-                Search
-              </label>
-              <input
-                id="queue-search"
-                type="text"
-                className="form-control form-control-sm"
-                placeholder="Search by ticket number or summary..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                data-testid="queue-search-input"
-              />
-            </div>
-
+        {/* Filter Controls Bar (Visible when toggled or accessible for tests) */}
+        <div className={`card border shadow-sm p-3 rounded-3 bg-white ${showFilters ? "d-block" : "d-none d-md-block"}`}>
+          <div className="row g-2 align-items-center">
             {/* Status Filter */}
-            <div className="col-6 col-md-2">
-              <label htmlFor="status-filter" className="form-label small fw-bold text-muted">
+            <div className="col-6 col-md-3">
+              <label htmlFor="status-filter" className="form-label small fw-semibold text-muted mb-1">
                 Status
               </label>
               <select
                 id="status-filter"
-                className="form-select form-select-sm"
+                className="form-select form-select-sm rounded-2"
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value);
@@ -237,13 +249,13 @@ export default function StaffTicketQueue({
             </div>
 
             {/* Priority Filter */}
-            <div className="col-6 col-md-2">
-              <label htmlFor="priority-filter" className="form-label small fw-bold text-muted">
+            <div className="col-6 col-md-3">
+              <label htmlFor="priority-filter" className="form-label small fw-semibold text-muted mb-1">
                 Priority
               </label>
               <select
                 id="priority-filter"
-                className="form-select form-select-sm"
+                className="form-select form-select-sm rounded-2"
                 value={priorityFilter}
                 onChange={(e) => {
                   setPriorityFilter(e.target.value);
@@ -259,34 +271,14 @@ export default function StaffTicketQueue({
               </select>
             </div>
 
-            {/* Owner Filter */}
-            <div className="col-6 col-md-2">
-              <label htmlFor="owner-filter" className="form-label small fw-bold text-muted">
-                Owner
-              </label>
-              <select
-                id="owner-filter"
-                className="form-select form-select-sm"
-                value={ownerFilter}
-                onChange={(e) => {
-                  setOwnerFilter(e.target.value);
-                  setPage(1);
-                }}
-                data-testid="owner-filter-select"
-              >
-                <option value="all">All Owners</option>
-                <option value="unassigned">Unassigned</option>
-              </select>
-            </div>
-
             {/* Category Filter */}
-            <div className="col-6 col-md-2">
-              <label htmlFor="category-filter" className="form-label small fw-bold text-muted">
+            <div className="col-6 col-md-3">
+              <label htmlFor="category-filter" className="form-label small fw-semibold text-muted mb-1">
                 Category
               </label>
               <select
                 id="category-filter"
-                className="form-select form-select-sm"
+                className="form-select form-select-sm rounded-2"
                 value={categoryFilter}
                 onChange={(e) => {
                   setCategoryFilter(e.target.value);
@@ -302,208 +294,226 @@ export default function StaffTicketQueue({
                 ))}
               </select>
             </div>
-          </div>
 
-          <div className="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-            <span className="text-muted small">
-              Showing {tickets.length > 0 ? (meta.currentPage - 1) * meta.limit + 1 : 0} to{" "}
-              {Math.min(meta.currentPage * meta.limit, meta.totalItems)} of {meta.totalItems} tickets
-            </span>
-            <button
-              className="btn btn-outline-secondary btn-sm"
-              onClick={handleClearFilters}
-              data-testid="clear-filters-btn"
-            >
-              Clear Filters
-            </button>
+            {/* Clear Filters */}
+            <div className="col-6 col-md-3 d-flex align-items-end">
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm w-100 rounded-2 py-1.5"
+                onClick={handleClearFilters}
+              >
+                Reset Filters
+              </button>
+            </div>
           </div>
+        </div>
+
+        {/* Showing Items Counter matching Image 3 */}
+        <div className="d-flex justify-content-between align-items-center">
+          <span className="text-muted small fw-medium" data-testid="total-tickets-count">
+            Showing: {startItem} to {endItem} of {meta.totalItems} tickets (Total: {meta.totalItems})
+          </span>
         </div>
       </div>
 
-      {/* Error state */}
       {error && (
-        <div className="alert alert-danger py-2 mb-3" data-testid="queue-error">
+        <div className="alert alert-danger py-2 px-3 mb-4 rounded-3 small" role="alert">
           {error}
         </div>
       )}
 
-      {/* Loading state */}
-      {loading ? (
-        <div className="text-center py-5" data-testid="queue-loading">
-          <div className="spinner-border text-success" role="status">
-            <span className="visually-hidden">Loading queue...</span>
-          </div>
-          <p className="text-muted mt-2 small">Loading tickets...</p>
-        </div>
-      ) : tickets.length === 0 ? (
-        <div className="card shadow-sm border-0 text-center py-5" data-testid="empty-queue-msg">
-          <div className="card-body">
-            <h3 className="h6 text-muted mb-2">No tickets found</h3>
-            <p className="text-muted small mb-0">
-              Try adjusting your search criteria or clearing filters.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Desktop Table View (≥992px) */}
-          <div className="card shadow-sm border-0 d-none d-lg-block mb-3">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0" data-testid="ticket-table">
-                <thead className="table-light">
-                  <tr>
-                    <th
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleSort("ticketNumber")}
-                      data-testid="sort-ticketNumber"
-                    >
-                      Ticket No. {sortBy === "ticketNumber" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-                    </th>
-                    <th
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleSort("createdAt")}
-                      data-testid="sort-createdAt"
-                    >
-                      Created Date {sortBy === "createdAt" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-                    </th>
-                    <th
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleSort("summary")}
-                      data-testid="sort-summary"
-                    >
-                      Summary {sortBy === "summary" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-                    </th>
-                    <th>Category</th>
-                    <th>Req. Priority</th>
-                    <th
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleSort("itPriority")}
-                      data-testid="sort-itPriority"
-                    >
-                      IT Priority {sortBy === "itPriority" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-                    </th>
-                    <th
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleSort("status")}
-                      data-testid="sort-status"
-                    >
-                      Status {sortBy === "status" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
-                    </th>
-                    <th>Owner</th>
-                    <th className="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tickets.map((ticket) => (
-                    <tr key={ticket.id} data-testid={`ticket-row-${ticket.id}`}>
-                      <td>
-                        <strong className="text-zen-green" data-testid={`ticket-code-${ticket.id}`}>
-                          {ticket.ticketNumber}
-                        </strong>
-                      </td>
-                      <td className="small text-muted">
-                        {new Date(ticket.createdAt).toLocaleDateString()}
-                      </td>
-                      <td>
-                        <div className="fw-medium text-dark">{ticket.summary}</div>
-                      </td>
-                      <td>
-                        <span className="badge bg-light text-dark border">
-                          {ticket.category?.name || "N/A"}
-                        </span>
-                      </td>
-                      <td>{renderPriorityBadge(ticket.requestedPriority)}</td>
-                      <td>{renderPriorityBadge(ticket.itPriority || ticket.requestedPriority)}</td>
-                      <td>{renderStatusBadge(ticket.currentStatus)}</td>
-                      <td>
-                        {ticket.owner ? (
-                          <span className="small text-dark fw-semibold">
-                            👤 {ticket.owner.name}
-                          </span>
-                        ) : (
-                          <span className="badge bg-light text-muted border">Unassigned</span>
-                        )}
-                      </td>
-                      <td className="text-end">
+      {/* Main Table Card (Image 3) */}
+      <div className="card border shadow-sm rounded-3 bg-white overflow-hidden" style={{ borderColor: "#e2e8f0" }}>
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0">
+            <thead style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <tr className="small text-muted fw-semibold">
+                <th
+                  scope="col"
+                  className="py-3 px-3 cursor-pointer user-select-none"
+                  onClick={() => handleSort("ticketNumber")}
+                  style={{ width: "13%" }}
+                >
+                  <span className="d-inline-flex align-items-center gap-1">
+                    Ticket No. ↕
+                  </span>
+                </th>
+                <th
+                  scope="col"
+                  className="py-3 px-3 cursor-pointer user-select-none"
+                  onClick={() => handleSort("createdAt")}
+                  style={{ width: "14%" }}
+                >
+                  <span className="d-inline-flex align-items-center gap-1">
+                    Created Date ↕
+                  </span>
+                </th>
+                <th scope="col" className="py-3 px-3" style={{ width: "24%" }}>
+                  Summary
+                </th>
+                <th
+                  scope="col"
+                  className="py-3 px-3 cursor-pointer user-select-none"
+                  onClick={() => handleSort("category")}
+                  style={{ width: "11%" }}
+                >
+                  <span className="d-inline-flex align-items-center gap-1">
+                    Category ↕
+                  </span>
+                </th>
+                <th scope="col" className="py-3 px-3 text-center" style={{ width: "10%" }}>
+                  Req. Priority
+                </th>
+                <th scope="col" className="py-3 px-3 text-center" style={{ width: "10%" }}>
+                  IT Priority
+                </th>
+                <th
+                  scope="col"
+                  className="py-3 px-3 text-center cursor-pointer user-select-none"
+                  onClick={() => handleSort("currentStatus")}
+                  style={{ width: "10%" }}
+                >
+                  <span className="d-inline-flex align-items-center gap-1 justify-content-center">
+                    Status ↕
+                  </span>
+                </th>
+                <th scope="col" className="py-3 px-3" style={{ width: "8%" }}>
+                  Owner ↕
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-5 text-muted">
+                    <div className="spinner-border spinner-border-sm text-zen-green me-2" role="status"></div>
+                    Loading tickets...
+                  </td>
+                </tr>
+              ) : tickets.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-5 text-muted">
+                    No tickets found matching the search criteria.
+                  </td>
+                </tr>
+              ) : (
+                tickets.map((ticket) => (
+                  <tr
+                    key={ticket.id}
+                    className="cursor-pointer"
+                    onClick={() => onSelectTicket(ticket.id)}
+                    style={{ borderBottom: "1px solid #f1f5f9" }}
+                  >
+                    {/* Ticket No as Green Link */}
+                    <td className="px-3 py-3 font-monospace">
+                      <span
+                        className="fw-bold text-zen-green text-decoration-none"
+                        style={{ color: "#006039", cursor: "pointer" }}
+                        data-testid={`ticket-code-${ticket.id}`}
+                      >
+                        {ticket.ticketNumber}
+                      </span>
+                    </td>
+
+                    {/* Created Date */}
+                    <td className="px-3 py-3 text-muted small">
+                      {formatDate(ticket.createdAt)}
+                    </td>
+
+                    {/* Summary */}
+                    <td className="px-3 py-3 fw-medium text-dark text-truncate" style={{ maxWidth: 260 }}>
+                      {ticket.summary}
+                    </td>
+
+                    {/* Category */}
+                    <td className="px-3 py-3 text-muted small">
+                      {ticket.category?.name || "General"}
+                    </td>
+
+                    {/* Req Priority */}
+                    <td className="px-3 py-3 text-center">
+                      {renderPriorityBadge(ticket.requestedPriority)}
+                    </td>
+
+                    {/* IT Priority */}
+                    <td className="px-3 py-3 text-center">
+                      {renderPriorityBadge(ticket.itPriority)}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-3 py-3 text-center">
+                      {renderStatusBadge(ticket.currentStatus)}
+                    </td>
+
+                    {/* Owner */}
+                    <td className="px-3 py-3 text-muted small">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span>{ticket.owner ? ticket.owner.name : "Unassigned"}</span>
                         <button
-                          className="btn btn-sm btn-outline-success"
-                          onClick={() => onSelectTicket(ticket.id)}
+                          type="button"
+                          className="btn btn-sm btn-link text-zen-green p-0 text-decoration-none d-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectTicket(ticket.id);
+                          }}
                           data-testid={`view-ticket-btn-${ticket.id}`}
                         >
-                          View Ticket
+                          View
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Empty state message when tickets.length === 0 */}
+        {tickets.length === 0 && !loading && (
+          <div className="p-4 text-center text-muted" data-testid="empty-queue-msg">
+            No tickets found
+          </div>
+        )}
+
+        {/* Pagination matching Image 3 */}
+        {meta.totalPages > 1 && (
+          <div className="d-flex justify-content-center align-items-center py-4 bg-white border-top">
+            <div className="pagination-box">
+              <button
+                type="button"
+                className="pagination-item"
+                disabled={!meta.hasPrevPage}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                data-testid="pagination-prev"
+              >
+                &lt; Previous
+              </button>
+
+              {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  className={`pagination-item ${pageNum === meta.currentPage ? "active" : ""}`}
+                  onClick={() => setPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                className="pagination-item"
+                disabled={!meta.hasNextPage}
+                onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                data-testid="pagination-next"
+              >
+                Next &gt;
+              </button>
             </div>
           </div>
-
-          {/* Mobile Card View (<992px) */}
-          <div className="d-lg-none">
-            {tickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                className="card shadow-sm border-0 mb-3"
-                data-testid={`ticket-card-${ticket.id}`}
-              >
-                <div className="card-body">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <strong className="text-zen-green">{ticket.ticketNumber}</strong>
-                    {renderStatusBadge(ticket.currentStatus)}
-                  </div>
-                  <h3 className="h6 fw-bold mb-2">{ticket.summary}</h3>
-                  <div className="row g-2 mb-3 small text-muted">
-                    <div className="col-6">
-                      Category: <strong>{ticket.category?.name || "N/A"}</strong>
-                    </div>
-                    <div className="col-6">
-                      IT Priority: {renderPriorityBadge(ticket.itPriority || ticket.requestedPriority)}
-                    </div>
-                    <div className="col-6">
-                      Created: {new Date(ticket.createdAt).toLocaleDateString()}
-                    </div>
-                    <div className="col-6">
-                      Owner: {ticket.owner ? ticket.owner.name : "Unassigned"}
-                    </div>
-                  </div>
-                  <button
-                    className="btn btn-success btn-sm w-100"
-                    onClick={() => onSelectTicket(ticket.id)}
-                    data-testid={`mobile-view-btn-${ticket.id}`}
-                  >
-                    Open Ticket
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination Controls */}
-          <div className="d-flex justify-content-between align-items-center mt-3">
-            <button
-              className="btn btn-outline-secondary btn-sm"
-              disabled={!meta.hasPrevPage}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              data-testid="pagination-prev"
-            >
-              &laquo; Previous
-            </button>
-            <span className="small text-muted" data-testid="pagination-page-info">
-              Page {meta.currentPage} of {meta.totalPages}
-            </span>
-            <button
-              className="btn btn-outline-secondary btn-sm"
-              disabled={!meta.hasNextPage}
-              onClick={() => setPage((p) => p + 1)}
-              data-testid="pagination-next"
-            >
-              Next &raquo;
-            </button>
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

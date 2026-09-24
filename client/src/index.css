@@ -1,72 +1,411 @@
 :root {
-  --zg-primary: #006B3C;
-  --zg-primary-hover: #00522e;
-  --zg-primary-light: #e6f0eb;
-  --zg-primary-900: #1B3B2B;
-  --zg-primary-800: #006B3C;
-  --zg-emerald-500: #3E9B5F;
-  --zg-sage-100: #EBF3ED;
-  --zg-sage-50: #F4F8F5;
-  --zg-bg-main: #F8FAF9;
-  --zg-surface-card: #FFFFFF;
-  --zg-border-color: #E2ECE5;
-  --zg-text-heading: #122119;
-  --zg-text-body: #3A4B40;
-  --zg-text-muted: #738A7C;
+  --zg-primary: #006039;
+  --zg-primary-hover: #004d2c;
+  --zg-primary-light: #e6f4ea;
+  --zg-primary-900: #0f3d24;
+  --zg-primary-800: #006039;
+  --zg-emerald-500: #10b981;
+  --zg-sage-100: #ebf5ee;
+  --zg-sage-50: #f4f8f5;
+  --zg-bg-main: #f8fafc;
+  --zg-surface-card: #ffffff;
+  --zg-border-color: #e2e8f0;
+  --zg-text-heading: #0f172a;
+  --zg-text-body: #334155;
+  --zg-text-muted: #64748b;
+}
+
+/* Base Scaling: High-density, crisp modern UI scale */
+html {
+  font-size: 13px;
 }
 
 body {
   background-color: var(--zg-bg-main);
   color: var(--zg-text-body);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
+/* Page Layout Max Width */
+.app-container,
+.main-content-wrapper {
+  max-width: 1240px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Primary Brand Classes */
 .bg-zen-green {
-  background-color: #006B3C !important;
+  background-color: #006039 !important;
   color: #ffffff !important;
 }
 
+.navbar,
+header.bg-zen-green {
+  border: none !important;
+}
+
 .btn-zen-green {
-  background-color: #006B3C;
+  background-color: #006039;
   color: #ffffff;
-  border: none;
+  border: 1px solid #006039;
   font-weight: 500;
-  transition: background-color 0.2s ease-in-out;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  transition: all 0.2s ease-in-out;
 }
 
 .btn-zen-green:hover,
 .btn-zen-green:focus {
-  background-color: #00522e;
+  background-color: #004d2c;
+  border-color: #004d2c;
   color: #ffffff;
 }
 
 .btn-zen-green:disabled {
-  background-color: #7da893;
+  background-color: #80af9c;
+  border-color: #80af9c;
   color: #ffffff;
+  cursor: not-allowed;
 }
 
 .btn-outline-zen-green {
   background-color: transparent;
-  color: #006B3C;
-  border: 1px solid #006B3C;
+  color: #006039;
+  border: 1.5px solid #006039;
   font-weight: 500;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  transition: all 0.2s ease-in-out;
 }
 
 .btn-outline-zen-green:hover {
-  background-color: #006B3C;
+  background-color: #006039;
   color: #ffffff;
 }
 
 .border-zen-green {
-  border-color: #006B3C !important;
+  border-color: #006039 !important;
 }
 
 .text-zen-green {
-  color: #006B3C !important;
+  color: #006039 !important;
 }
 
 .card-zen-green {
   border: 1px solid var(--zg-border-color);
-  box-shadow: 0 4px 12px rgba(0, 107, 60, 0.08);
-  border-radius: 12px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  background-color: #ffffff;
 }
+
+/* Form Controls Compact Styling */
+.form-control,
+.form-select {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  border-color: #e2e8f0;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #006039;
+  box-shadow: 0 0 0 2px rgba(0, 96, 57, 0.15);
+}
+
+.form-control-sm,
+.form-select-sm {
+  font-size: 0.8rem;
+  padding: 0.28rem 0.5rem;
+  border-radius: 5px;
+}
+
+.btn-sm {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 5px;
+}
+
+/* Compact Table Styling */
+.table > :not(caption) > * > * {
+  padding: 0.42rem 0.65rem;
+}
+
+.table thead th {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.table tbody td {
+  font-size: 0.85rem;
+}
+
+/* Modern Compact Pill Badges */
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  line-height: 1.3;
+}
+
+/* Status variants */
+.pill-status-in-progress,
+.pill-status-resolved {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.pill-status-open {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.pill-status-pending {
+  background-color: #ffedd5;
+  color: #ea580c;
+}
+
+.pill-status-closed {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+/* Priority variants */
+.pill-priority-high {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.pill-priority-medium {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.pill-priority-low {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+/* Role variants */
+.pill-role-staff {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.pill-role-requester {
+  background-color: #ede9fe;
+  color: #6d28d9;
+}
+
+.pill-role-admin {
+  background-color: #ccfbf1;
+  color: #0f766e;
+}
+
+/* Status: Active / Inactive */
+.pill-active-true {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.pill-active-false {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Avatar Circle */
+.user-avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #dcfce7;
+  color: #166534;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+/* Custom Tabs */
+.custom-tab-btn {
+  background: none;
+  border: none;
+  padding: 0.55rem 0.95rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.custom-tab-btn:hover {
+  color: #006039;
+}
+
+.custom-tab-btn.active {
+  color: #006039;
+  border-bottom: 2px solid #006039;
+}
+
+.custom-tab-badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  background-color: #e2e8f0;
+  color: #475569;
+  font-weight: 600;
+}
+
+.custom-tab-btn.active .custom-tab-badge {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+/* Pagination Box */
+.pagination-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pagination-item {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.4rem;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pagination-item:hover:not(:disabled) {
+  border-color: #006039;
+  color: #006039;
+}
+
+.pagination-item.active {
+  background-color: #006039;
+  border-color: #006039;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.pagination-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Custom Toggle Switch */
+.switch-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.switch-pill {
+  width: 40px;
+  height: 20px;
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+  padding: 2px;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.switch-pill.checked {
+  background-color: #006039;
+}
+
+.switch-thumb {
+  width: 16px;
+  height: 16px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+  transform: translateX(0);
+}
+
+.switch-pill.checked .switch-thumb {
+  transform: translateX(20px);
+}
+
+/* User Management Page Scoped Sizing (Comfortable, slightly larger scale for this page) */
+.user-mgmt-page {
+  font-size: 0.94rem;
+}
+
+.user-mgmt-page .table > :not(caption) > * > * {
+  padding: 0.72rem 0.95rem;
+}
+
+.user-mgmt-page .table thead th {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+
+.user-mgmt-page .user-row-title {
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.user-mgmt-page .user-row-email {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.user-mgmt-page .pill-badge {
+  padding: 0.22rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Remove any dark/black borders on editing row and dropdown */
+.user-mgmt-page .table > tbody > tr.user-row-editing,
+.user-mgmt-page .table > tbody > tr.user-row-editing > td,
+.user-mgmt-page .table > tbody > tr.user-row-editing > th {
+  background-color: #f0fdf4 !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
+}
+
+.user-mgmt-page .table > tbody > tr.edit-dropdown-row,
+.user-mgmt-page .table > tbody > tr.edit-dropdown-row > td,
+.user-mgmt-page .table > tbody > tr.edit-dropdown-row > th {
+  background-color: #f0fdf4 !important;
+  border: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
+}
+
+

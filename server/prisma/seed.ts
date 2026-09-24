@@ -1,7 +1,7 @@
 import { getPrisma } from "../src/prisma.js";
 
 // Standard bcrypt hash for "Password123!" for development seed accounts
-const SEED_PASSWORD_HASH = "$2b$10$Ep5412l4w0H4/y/1u.123456789012345678901234567890123456";
+const SEED_PASSWORD_HASH = "$2b$10$A3Qzi8YcjMMgNxPsBA7KHO69eRjBCIB8KsBx8Uv6hLB4B.pirpLWy";
 
 const categories = [
   "Account and Access",
@@ -142,6 +142,7 @@ async function main() {
       where: { email: u.email },
       update: {
         name: u.name,
+        passwordHash: SEED_PASSWORD_HASH,
         role: u.role,
         isActive: u.isActive,
       },
