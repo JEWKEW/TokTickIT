@@ -138,13 +138,13 @@ export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }
   const endItem = Math.min(meta.currentPage * meta.limit, meta.totalItems);
 
   return (
-    <div className="container py-4">
+    <div className="container py-3 px-3 px-md-4" style={{ maxWidth: 1140 }}>
       {/* Top Header */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
           <div className="d-flex align-items-center gap-2">
-            <h1 className="h3 mb-0 fw-bold text-zen-green">My Tickets</h1>
-            <span className="badge bg-zen-green rounded-pill px-3 py-2 fs-6">
+            <h1 className="h4 mb-0 fw-bold text-dark">My Tickets</h1>
+            <span className="badge bg-zen-green rounded-pill px-2 py-1 small">
               {meta.totalItems}
             </span>
           </div>
@@ -155,7 +155,7 @@ export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }
         {onCreateTicket && (
           <button
             type="button"
-            className="btn btn-zen-green fw-bold px-3 py-2 shadow-sm d-inline-flex align-items-center gap-2"
+            className="btn btn-zen-green btn-sm fw-medium px-3 py-1.5 shadow-sm d-inline-flex align-items-center gap-2 rounded-2"
             onClick={onCreateTicket}
             data-testid="create-ticket-btn"
           >
@@ -165,7 +165,7 @@ export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }
       </div>
 
       {/* Toolbar & Filters Card */}
-      <div className="card border-0 shadow-sm rounded-3 mb-4 p-3 bg-white">
+      <div className="card border-0 shadow-sm rounded-3 mb-3 p-3 bg-white">
         <div className="row g-3 align-items-center">
           {/* Search bar */}
           <div className="col-12 col-md-4">

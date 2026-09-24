@@ -226,16 +226,16 @@ export const CreateTicketForm: React.FC<CreateTicketFormProps> = ({
   }
 
   return (
-    <div className="container py-4" style={{ maxWidth: 768 }} data-testid="create-ticket-page">
-      <div className="card shadow-sm border-0 rounded-4 overflow-hidden">
-        <div className="card-header bg-zen-green text-white p-4">
-          <h2 className="h4 fw-bold mb-1">Create IT Support Ticket</h2>
+    <div className="container py-3 px-3" style={{ maxWidth: 680 }} data-testid="create-ticket-page">
+      <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
+        <div className="card-header bg-zen-green text-white p-3">
+          <h2 className="h5 fw-bold mb-1">Create IT Support Ticket</h2>
           <p className="small text-white-50 mb-0">
             Submit a new ticket for IT support, access requests, or system issues.
           </p>
         </div>
 
-        <div className="card-body p-4">
+        <div className="card-body p-3.5">
           {apiError && (
             <div className="alert alert-danger mb-4 d-flex align-items-center gap-2" role="alert" data-testid="api-error-banner">
               <span>⚠️</span>

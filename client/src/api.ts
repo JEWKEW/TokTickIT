@@ -566,5 +566,191 @@ export async function postInternalNote(
   return data.data;
 }
 
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  mustChangePassword: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function fetchAdminUsers(
+  params?: { q?: string; role?: string },
+  tokenOrUserId?: string | number
+): Promise<AdminUser[]> {
+  const query = new URLSearchParams();
+  if (params?.q) query.append("q", params.q);
+  if (params?.role) query.append("role", params.role);
+
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  const url = `${API_URL}/api/admin/users${queryString}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: buildAuthHeaders(tokenOrUserId),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve user list");
+  }
+  return data.data;
+}
+
+export async function createAdminUser(
+  userData: {
+    name: string;
+    email: string;
+    role: string;
+    isActive?: boolean;
+    initialPassword: string;
+  },
+  tokenOrUserId?: string | number
+): Promise<AdminUser> {
+  const url = `${API_URL}/api/admin/users`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify(userData),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to create user account");
+  }
+  return data.data;
+}
+
+export async function updateAdminUser(
+  userId: number,
+  updateData: {
+    name?: string;
+    email?: string;
+    role?: string;
+    isActive?: boolean;
+  },
+  tokenOrUserId?: string | number
+): Promise<AdminUser> {
+  const url = `${API_URL}/api/admin/users/${userId}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify(updateData),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to update user profile");
+  }
+  return data.data;
+}
+
+export async function resetUserPassword(
+  userId: number,
+  initialPassword: string,
+  tokenOrUserId?: string | number
+): Promise<AdminUser> {
+  const url = `${API_URL}/api/admin/users/${userId}/reset-password`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify({ initialPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to reset user password");
+  }
+  return data.data.user || data.data;
+}
+
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  mustChangePassword: boolean;
+  isActive: boolean;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Invalid email or password");
+  }
+
+  if (data.data?.token) {
+    sessionStorage.setItem("token", data.data.token);
+    sessionStorage.setItem("x-user-id", data.data.user.id.toString());
+  }
+
+  return data.data;
+}
+
+export async function getCurrentUser(tokenOrUserId?: string | number): Promise<AuthUser> {
+  const headers = buildAuthHeaders(tokenOrUserId);
+  const res = await fetch(`${API_URL}/api/auth/me`, {
+    method: "GET",
+    headers,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Authentication required");
+  }
+
+  return data.data;
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmNewPassword: string,
+  tokenOrUserId?: string | number
+): Promise<{ message: string; mustChangePassword: boolean }> {
+  const headers = buildAuthHeaders(tokenOrUserId);
+  const res = await fetch(`${API_URL}/api/auth/change-password`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ currentPassword, newPassword, confirmNewPassword }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to change password");
+  }
+
+  return data.data;
+}
+
+export async function logout(tokenOrUserId?: string | number): Promise<void> {
+  const headers = buildAuthHeaders(tokenOrUserId);
+  sessionStorage.removeItem("token");
+  sessionStorage.removeItem("x-user-id");
+  sessionStorage.removeItem("selectedRequester");
+  localStorage.removeItem("token");
+  try {
+    await fetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+      headers,
+    });
+  } catch (_) {
+    // Ignore network error on logout
+  }
+}
+
+
+
 
 

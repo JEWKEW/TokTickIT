@@ -1989,4 +1989,466 @@ app.post("/api/tickets/:id/internal-notes", authenticateToken, enforcePasswordCh
   }
 });
 
+// ---------------------------------------------------------------------------
+// Administrator User Management Endpoints (/api/admin/users)
+// ---------------------------------------------------------------------------
+
+// GET /api/admin/users
+app.get("/api/admin/users", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: Administrator role required",
+        },
+      });
+    }
+
+    const { q, role } = req.query;
+    const prisma = getPrisma();
+    const userModel = (prisma as any).user || (prisma as any).requesterUser;
+
+    const where: any = {};
+
+    if (q && typeof q === "string" && q.trim() !== "") {
+      const searchTerm = q.trim();
+      where.OR = [
+        { name: { contains: searchTerm, mode: "insensitive" } },
+        { email: { contains: searchTerm, mode: "insensitive" } },
+      ];
+    }
+
+    if (role && typeof role === "string" && role.trim() !== "") {
+      where.role = role.trim();
+    }
+
+    const users = await userModel.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { id: "asc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: users,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to retrieve user list",
+      },
+    });
+  }
+});
+
+// POST /api/admin/users
+app.post("/api/admin/users", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: Administrator role required",
+        },
+      });
+    }
+
+    const { name, email, role, isActive, initialPassword } = req.body || {};
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "User name is required",
+        },
+      });
+    }
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Email address is required",
+        },
+      });
+    }
+
+    const validRoles = ["REQUESTER", "IT_STAFF", "ADMINISTRATOR"];
+    if (!role || typeof role !== "string" || !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Valid role is required (REQUESTER, IT_STAFF, ADMINISTRATOR)",
+        },
+      });
+    }
+
+    if (!initialPassword || typeof initialPassword !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Initial password is required",
+        },
+      });
+    }
+
+    const passwordCheck = validatePasswordPolicy(initialPassword);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: passwordCheck.message || "Password does not meet policy requirements",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const userModel = (prisma as any).user || (prisma as any).requesterUser;
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await userModel.findFirst({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: "CONFLICT",
+          message: "Email address already exists",
+        },
+      });
+    }
+
+    const passwordHash = await hashPassword(initialPassword);
+    const newUser = await userModel.create({
+      data: {
+        name: name.trim(),
+        email: normalizedEmail,
+        passwordHash,
+        role,
+        mustChangePassword: true,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: newUser,
+    });
+  } catch (error: any) {
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: "CONFLICT",
+          message: "Email address already exists",
+        },
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to create user",
+      },
+    });
+  }
+});
+
+// PATCH /api/admin/users/:id
+app.patch("/api/admin/users/:id", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: Administrator role required",
+        },
+      });
+    }
+
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid user ID",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const userModel = (prisma as any).user || (prisma as any).requesterUser;
+
+    const targetUser = await userModel.findUnique({
+      where: { id: userId },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "User not found",
+        },
+      });
+    }
+
+    const { name, email, role, isActive } = req.body || {};
+
+    // BR-13 Self-deactivation / self-demotion prevention
+    if (req.user.id === userId) {
+      if (isActive === false) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot deactivate your own account",
+          },
+        });
+      }
+      if (role && role !== "ADMINISTRATOR") {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot change your own role from Administrator",
+          },
+        });
+      }
+    }
+
+    // BR-14 Last active Administrator protection
+    const isTargetActiveAdmin = targetUser.role === "ADMINISTRATOR" && targetUser.isActive;
+    const isDeactivatingOrDemotingAdmin =
+      isTargetActiveAdmin &&
+      (isActive === false || (role && role !== "ADMINISTRATOR"));
+
+    if (isDeactivatingOrDemotingAdmin) {
+      const activeAdmins = await userModel.findMany({
+        where: {
+          role: "ADMINISTRATOR",
+          isActive: true,
+          id: { not: userId },
+        },
+      });
+
+      if (!activeAdmins || activeAdmins.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Cannot deactivate or demote the last active Administrator",
+          },
+        });
+      }
+    }
+
+    // BR-12 Duplicate email check
+    if (email && typeof email === "string" && email.trim().toLowerCase() !== targetUser.email.toLowerCase()) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const existingUser = await userModel.findFirst({
+        where: {
+          email: normalizedEmail,
+          id: { not: userId },
+        },
+      });
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "CONFLICT",
+            message: "Email address already exists",
+          },
+        });
+      }
+    }
+
+    const updateData: any = {};
+    if (name && typeof name === "string") updateData.name = name.trim();
+    if (email && typeof email === "string") updateData.email = email.trim().toLowerCase();
+    if (role && typeof role === "string") {
+      const validRoles = ["REQUESTER", "IT_STAFF", "ADMINISTRATOR"];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid role value",
+          },
+        });
+      }
+      updateData.role = role;
+    }
+    if (isActive !== undefined) updateData.isActive = Boolean(isActive);
+
+    const updatedUser = await userModel.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: updatedUser,
+    });
+  } catch (error: any) {
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: "CONFLICT",
+          message: "Email address already exists",
+        },
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to update user profile",
+      },
+    });
+  }
+});
+
+// POST /api/admin/users/:id/reset-password
+app.post("/api/admin/users/:id/reset-password", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== "ADMINISTRATOR") {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: Administrator role required",
+        },
+      });
+    }
+
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid user ID",
+        },
+      });
+    }
+
+    const { initialPassword } = req.body || {};
+    if (!initialPassword || typeof initialPassword !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Initial password is required",
+        },
+      });
+    }
+
+    const passwordCheck = validatePasswordPolicy(initialPassword);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: passwordCheck.message || "Password does not meet policy requirements",
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+    const userModel = (prisma as any).user || (prisma as any).requesterUser;
+
+    const targetUser = await userModel.findUnique({
+      where: { id: userId },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "User not found",
+        },
+      });
+    }
+
+    const passwordHash = await hashPassword(initialPassword);
+
+    const updatedUser = await userModel.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        mustChangePassword: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        mustChangePassword: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: "Initial password set successfully",
+        user: updatedUser,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Failed to reset initial password",
+      },
+    });
+  }
+});
+
 export default app;
+
