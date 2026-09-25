@@ -1,7 +1,7 @@
 # 🎫 TokTickIT — IT Service Desk Platform
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
-![Build Status](https://img.shields.io/badge/tests-69%20passed%20(100%25)-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
+![Build Status](https://img.shields.io/badge/tests-215%20passed%20(100%25)-brightgreen.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)
 ![React](https://img.shields.io/badge/React-18.x-61dafb?logo=react)
@@ -9,10 +9,11 @@
 ![Express](https://img.shields.io/badge/Express-4.x-lightgrey?logo=express)
 ![Prisma](https://img.shields.io/badge/Prisma-5.x-2D3748?logo=prisma)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791?logo=postgresql)
+![JWT](https://img.shields.io/badge/JWT-Authentication-black?logo=jsonwebtokens)
 ![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?logo=playwright)
 ![Design System](https://img.shields.io/badge/Design%20System-Zen%20Green%20%23006B3C-006B3C)
 
-**TokTickIT** is an enterprise-grade IT Service Desk ticketing platform. Lab 02 delivers complete **Requester MVP Capabilities**, allowing end-users to simulate user identity switching ("Fake Login"), submit IT service request tickets with file attachments, view their submitted tickets in a paginated dashboard with search, filtering, and sorting, access read-only ticket details, and soft-remove file attachments while preserving historical audit metadata.
+**TokTickIT** is an enterprise-grade IT Service Desk ticketing platform. Lab 03 evolves the application into a secure, multi-tenant role-based system featuring JWT authentication, role-based authorization across three distinct roles (`REQUESTER`, `IT_STAFF`, `ADMINISTRATOR`), mandatory initial password resets (`mustChangePassword`), operational IT Staff Ticket Queue and ticket detail workflows (claiming/reassignment, IT Priority setting, permitted status transitions, append-only Public Comments, and restricted Internal Notes), and Administrator user management with safety guardrails (self-deactivation prevention, last active Administrator protection, and initial password resets).
 
 ---
 
@@ -21,12 +22,13 @@
 - [Overview & Architecture](#-overview--architecture)
 - [Tech Stack](#-tech-stack)
 - [Database ERD & Schema](#-database-erd--schema)
-- [Lab 02 Features Implemented](#-lab-02-features-implemented)
-- [Zen Green Design System](#-zen-green-design-system)
+- [Lab 03 Features Implemented](#-lab-03-features-implemented)
+- [Design System & Visual Tokens](#-design-system--visual-tokens)
 - [Getting Started & Setup](#-getting-started--setup)
   - [Prerequisites](#prerequisites)
   - [Environment Configuration](#environment-configuration)
   - [Database Setup & Seeding](#database-setup--seeding)
+  - [Default Development Accounts](#default-development-accounts)
   - [Running Backend & Frontend](#running-backend--frontend)
 - [REST API Contract Reference](#-rest-api-contract-reference)
 - [Testing & Quality Assurance](#-testing--quality-assurance)
@@ -38,7 +40,7 @@
 
 ## 🏗 Overview & Architecture
 
-TokTickIT is structured as a full-stack monorepo featuring a decoupled Node.js Express TypeScript backend, a React Vite frontend styled with Bootstrap 5 and custom **Zen Green** CSS design tokens, a PostgreSQL database managed via Prisma ORM, and automated Playwright E2E visual audit testing.
+TokTickIT is structured as a full-stack monorepo featuring a decoupled Node.js Express TypeScript backend, a React Vite frontend styled with Bootstrap 5, custom **Zen Green** design tokens, and warm amber accents for restricted internal notes. The database layer uses PostgreSQL managed via Prisma ORM, secured with bcrypt password hashing and JWT token handling. Playwright E2E visual audit testing covers cross-role workflows across Desktop, Tablet, and Mobile viewports.
 
 ### System Architecture Diagram
 
@@ -46,33 +48,41 @@ TokTickIT is structured as a full-stack monorepo featuring a decoupled Node.js E
 flowchart TD
     subgraph Client ["Client Application (React + Vite)"]
         UI["Zen Green UI / Bootstrap 5"]
-        Context["Requester Context Selector (x-user-id Header)"]
-        Forms["Create Ticket & Attachment Form"]
-        Dashboard["Paginated My Tickets Dashboard"]
-        Detail["Read-Only Ticket Detail & Soft-Delete Modal"]
+        AuthContext["Auth Context & JWT Token Storage"]
+        RoleRouter["Role-Based Navigation & Page Router"]
+        RequesterViews["Requester Screens (Create Ticket, My Tickets, Ticket Detail)"]
+        StaffViews["IT Staff Screens (Ticket Queue, Operational Detail)"]
+        AdminViews["Admin Screens (User Management Table & Modals)"]
     end
 
     subgraph Server ["Server Application (Express + Node.js)"]
-        AuthMiddleware["x-user-id Context Middleware"]
-        UploadMiddleware["Multer Storage & Validation Middleware (Max 5MB)"]
+        AuthMiddleware["JWT Authentication Middleware (Bearer Header)"]
+        RoleMiddleware["RBAC Role Authorization Guard (REQUESTER / IT_STAFF / ADMIN)"]
+        AuthRouter["/api/auth Route Handlers"]
         TicketRouter["/api/tickets Route Handlers"]
-        AttachmentRouter["/api/attachments Route Handlers"]
-        PrismaORM["Prisma Client"]
+        CommentsRouter["/api/tickets/:id/comments Handlers"]
+        NotesRouter["/api/tickets/:id/internal-notes Handlers"]
+        AdminRouter["/api/admin/users Route Handlers"]
+        PrismaORM["Prisma Client ORM"]
     end
 
     subgraph Database ["Database Layer"]
         PostgreSQL[("PostgreSQL Database")]
     end
 
-    UI --> Context
-    Context -->|HTTP x-user-id| AuthMiddleware
-    Forms -->|POST /api/tickets| UploadMiddleware
-    UploadMiddleware --> TicketRouter
-    Dashboard -->|GET /api/tickets| TicketRouter
-    Detail -->|GET /api/tickets/:id| TicketRouter
-    Detail -->|DELETE /api/attachments/:id| AttachmentRouter
+    UI --> AuthContext
+    AuthContext -->|Bearer JWT Header| AuthMiddleware
+    AuthMiddleware --> RoleMiddleware
+    RoleMiddleware --> AuthRouter
+    RoleMiddleware --> TicketRouter
+    RoleMiddleware --> CommentsRouter
+    RoleMiddleware --> NotesRouter
+    RoleMiddleware --> AdminRouter
+    AuthRouter --> PrismaORM
     TicketRouter --> PrismaORM
-    AttachmentRouter --> PrismaORM
+    CommentsRouter --> PrismaORM
+    NotesRouter --> PrismaORM
+    AdminRouter --> PrismaORM
     PrismaORM --> PostgreSQL
 ```
 
@@ -83,13 +93,13 @@ flowchart TD
 ### Backend (`server/`)
 - **Runtime & Framework:** Node.js (v18+), Express.js with TypeScript
 - **Database & ORM:** PostgreSQL, Prisma ORM (v5.x)
+- **Security & Auth:** JSON Web Tokens (`jsonwebtoken`), `bcrypt` password hashing (salt rounds = 10)
 - **File Storage:** Multer middleware with disk storage & file type/size sanitization
-- **Validation & Parsing:** Custom TypeScript schemas & body sanitizers
 - **Testing:** Vitest, Supertest for integration and API endpoint verification
 
 ### Frontend (`client/`)
 - **Framework & Build Tool:** React 18, Vite 5, TypeScript
-- **UI Framework & Styling:** Bootstrap 5, custom **Zen Green** CSS Design System Tokens
+- **UI Framework & Styling:** Bootstrap 5, custom **Zen Green** CSS Design System Tokens, warm amber internal notes tokens
 - **Icons & Visuals:** Bootstrap Icons
 - **Testing:** Vitest, React Testing Library, jsdom
 
@@ -104,16 +114,26 @@ The PostgreSQL database schema is defined in `server/prisma/schema.prisma` and m
 
 ```mermaid
 erDiagram
-    RequesterUser ||--o{ Ticket : "submits"
+    User ||--o{ Ticket : "submits (requester)"
+    User ||--o{ Ticket : "assigned (owner)"
+    User ||--o{ PublicComment : "authors"
+    User ||--o{ InternalNote : "authors"
     Category ||--o{ Ticket : "classifies"
     RelatedSystem ||--o{ Ticket : "links"
     Ticket ||--o{ Attachment : "contains"
+    Ticket ||--o{ PublicComment : "contains"
+    Ticket ||--o{ InternalNote : "contains"
 
-    RequesterUser {
+    User {
         String id PK
         String name
         String email UK
+        String passwordHash
+        String role "REQUESTER | IT_STAFF | ADMINISTRATOR"
+        Boolean mustChangePassword
         Boolean isActive
+        DateTime createdAt
+        DateTime updatedAt
     }
 
     Category {
@@ -127,12 +147,14 @@ erDiagram
         String id PK
         String name UK
         Boolean isActive
+        DateTime createdAt
     }
 
     Ticket {
         String id PK
         String ticketNumber UK
         String requesterId FK
+        String ownerId FK "Nullable"
         String categoryId FK
         String relatedSystemId FK
         String summary
@@ -140,6 +162,7 @@ erDiagram
         String requestedPriority
         String itPriority
         String currentStatus
+        Boolean requesterResolvedIndicated
         DateTime createdAt
         DateTime updatedAt
     }
@@ -156,82 +179,111 @@ erDiagram
         DateTime removedAt
         DateTime createdAt
     }
+
+    PublicComment {
+        String id PK
+        String ticketId FK
+        String authorId FK
+        String content
+        DateTime createdAt
+    }
+
+    InternalNote {
+        String id PK
+        String ticketId FK
+        String authorId FK
+        String content
+        DateTime createdAt
+    }
 ```
 
 ### Models Summary
 
-- **`RequesterUser`**: Stores development user accounts (`id`, `name`, `email`, `isActive`).
+- **`User`**: Unified user account entity storing credentials (`email`, `passwordHash`), system role (`REQUESTER`, `IT_STAFF`, `ADMINISTRATOR`), activation status (`isActive`), and password reset indicator (`mustChangePassword`).
 - **`Category`**: Pre-defined ticket categories (`Account and Access`, `Hardware`, `Software`, `Network`).
 - **`RelatedSystem`**: Pre-defined systems (`Email`, `Campus Wi-Fi`, `VPN`, `LEB2 App`, `Grade Submission App`, `Corporate Laptop`).
-- **`Ticket`**: Core ticket record containing unique code (`TKT-YYYY-XXXXXX`), requester reference, priorities, summary, description, and status (default `"New"`).
-- **`Attachment`**: File attachments linked to tickets with metadata (`originalFileName`, `storedFileName`, `fileSize`, `mimeType`) and soft-removal attributes (`isRemoved`, `removalReason`, `removedAt`).
+- **`Ticket`**: Core ticket entity storing ticket number (`TKT-YYYY-XXXXXX`), requester reference, IT Staff owner reference (`ownerId`), priorities (`requestedPriority`, `itPriority`), current status, and requester resolution signal (`requesterResolvedIndicated`).
+- **`Attachment`**: Uploaded files with soft-removal metadata (`isRemoved`, `removalReason`, `removedAt`).
+- **`PublicComment`**: Append-only public communication log accessible to Requesters, IT Staff, and Administrators.
+- **`InternalNote`**: Append-only confidential operational notes accessible ONLY to IT Staff and Administrators.
 
 ---
 
-## 🚀 Lab 02 Features Implemented
+## 🚀 Lab 03 Features Implemented
 
-### ISSUE-01: Sprint Specification & Test Plan
-- Authored [specification.md](file:///d:/TokTickIT/docs/lab-02/specification.md), [api-spec.md](file:///d:/TokTickIT/docs/lab-02/api-spec.md), [ui-spec.md](file:///d:/TokTickIT/docs/lab-02/ui-spec.md), and [tests.md](file:///d:/TokTickIT/docs/lab-02/tests.md).
-- Defined business rules **BR-01 through BR-08**, Given-When-Then acceptance criteria, and REST API shapes.
+### ISSUE-01: Specification & Test Strategy
+- Authored [specification.md](file:///d:/TokTickIT/docs/lab-03/specification.md), [api-spec.md](file:///d:/TokTickIT/docs/lab-03/api-spec.md), [ui-spec.md](file:///d:/TokTickIT/docs/lab-03/ui-spec.md), and [tests.md](file:///d:/TokTickIT/docs/lab-03/tests.md).
+- Defined business rules **BR-01 through BR-18**, Given-When-Then acceptance criteria, Given-When-Then test cases, and RBAC matrix.
 
-### ISSUE-02: Database Schema & Seed Data
-- Created PostgreSQL Prisma schema models for `RequesterUser`, `Category`, `RelatedSystem`, `Ticket`, and `Attachment`.
-- Created idempotent seed script (`server/prisma/seed.ts`) populating 4 categories, 6 related systems, 4 active requesters, and 1 inactive requester.
+### ISSUE-02: Database Schema & Migration
+- Migrated `RequesterUser` model into unified `User` model with roles, password hash, and `mustChangePassword` flag.
+- Created `PublicComment` and `InternalNote` tables, added `ownerId`, `itPriority`, and `requesterResolvedIndicated` fields to `Ticket`.
+- Created idempotent seed script (`server/prisma/seed.ts`) populating seed users across all three roles and realistic ticket thread history.
 
-### ISSUE-03: Development Requester User Context
-- Implemented `GET /api/requesters` returning active users (`isActive = true`).
-- Built header navbar dropdown context selector propagating `x-user-id` on all HTTP client requests.
+### ISSUE-03: Authentication Foundation & Security
+- Implemented JWT authentication (`POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`, `POST /api/auth/logout`).
+- Enforced mandatory initial password change (`mustChangePassword = true`) blocking access to all operational APIs until changed.
+- Enforced password strength validation (8+ characters, uppercase, lowercase, number, special char).
 
-### ISSUE-04: Ticket Creation Flow
-- Implemented `POST /api/tickets` creating tickets linked to active requester with auto-generated ticket codes (`TKT-YYYY-XXXXXX`).
-- Built Create Ticket form with client and server validation for summary (1–100 chars), description (1–1000 chars), priority, category, related system, and file attachments (max 5MB, JPG/PNG/WEBP/PDF).
+### ISSUE-04: Requester Identity Integration & Resolution Signal
+- Integrated session-authenticated user identity into all Requester ticket creation and dashboard views.
+- Implemented `PATCH /api/tickets/:id/indicate-resolved` allowing Requesters to signal problem resolution without altering formal IT status.
+- Enabled append-only Public Comments for Requesters on owned tickets.
 
-### ISSUE-05: My Tickets Screen & Search/Filters
-- Implemented `GET /api/tickets/my` (or `GET /api/tickets`) with strictly enforced requester data isolation.
-- Built dashboard table/card view with debounced search, category/priority/status filters, column sorting, clear filters, and pagination controls (`page`, `limit`).
+### ISSUE-05: IT Staff Ticket Queue Management
+- Built paginated IT Staff Ticket Queue (`GET /api/tickets/queue`) supporting keyword search (`ticketNumber`, `summary`), category, priority, status, and owner filters, plus sorting.
+- Designed responsive table view with quick status badges and direct navigation to ticket details.
 
-### ISSUE-06: Ticket Detail View & Access Control
-- Implemented `GET /api/tickets/:id` enforcing requester ownership (HTTP `403 Forbidden` if owned by another requester, `404 Not Found` if missing).
-- Built read-only Ticket Detail view with classification, description, status/priority badges, and "Back to My Tickets" navigation.
+### ISSUE-06: IT Staff Operational Detail & Workflows
+- Implemented ticket ownership claiming and reassignment (`PATCH /api/tickets/:id/assign`).
+- Implemented IT Priority updates (`PATCH /api/tickets/:id/it-priority`).
+- Implemented strict status transition validation matrix (`PATCH /api/tickets/:id/status`) enforcing permitted workflow steps (`New` ➔ `Open` ➔ `In Progress` ➔ `Resolved` ➔ `Closed`, etc.).
+- Implemented warm amber styled Internal Notes (`GET/POST /api/tickets/:id/internal-notes`) with strict HTTP 403 access control against Requesters.
 
-### ISSUE-07: Attachment Lifecycle Management
-- Implemented file attachment upload (`POST /api/tickets/:id/attachments`), secure download (`GET /api/attachments/:id/download`), and soft-removal (`DELETE /api/tickets/:id/attachments/:attachmentId`).
-- Enforced active attachment limits (max 5 total per ticket, max 3 at creation), file type/size validation, soft-deletion modal (`isRemoved = true`, removal reason prompt), and download blockage for removed items.
+### ISSUE-07: Administrator User Management
+- Built Administrator User Management table (`GET /api/admin/users`) with search (name/email), role filter, user creation (`POST /api/admin/users`), user profile editing (`PATCH /api/admin/users/:id`), and password resets (`POST /api/admin/users/:id/reset-password`).
+- Implemented critical safety guardrails: self-deactivation prevention, last active Administrator protection, and duplicate email rejection (`409 Conflict`).
 
-### ISSUE-08: E2E Testing & Visual Polish
-- Developed Playwright end-to-end test suite (`e2e/requester-ticket-flow.spec.ts`) covering the full end-to-end user journey.
-- Generated responsive visual audit screenshots across Desktop (1280px), Tablet (768px), and Mobile (375px) saved under `artifacts/lab-02/screenshots/`.
+### ISSUE-08: Playwright E2E Testing & Visual Audit
+- Developed Playwright end-to-end test suites (`e2e/lab-03/`) covering authentication, mandatory password reset, staff queue/detail operational flows, and administrator safety rules.
+- Generated responsive visual audit screenshots across Desktop (1280px), Tablet (768px), and Mobile (375px) saved under `artifacts/lab-03/screenshots/`.
 
-### ISSUE-09: Release Integration & Review Prep
-- Merged feature PRs into `lab2-staging` and opened release PR to `main`.
-- Documented peer review logs ([reviewer.md](file:///d:/TokTickIT/docs/lab-02/reviewer.md)) and AI reflection log ([ai-use.md](file:///d:/TokTickIT/docs/lab-02/ai-use.md)).
+### ISSUE-09: Integration & Peer Review
+- Completed feature PR reviews and release integration.
+- Documented peer review logs ([reviewer.md](file:///d:/TokTickIT/docs/lab-03/reviewer.md)) and AI reflection log ([ai-use.md](file:///d:/TokTickIT/docs/lab-03/ai-use.md)).
 
 ---
 
-## 🎨 Zen Green Design System
+## 🎨 Design System & Visual Tokens
 
-TokTickIT utilizes a custom **Zen Green** design token system built on top of Bootstrap 5:
+TokTickIT uses a custom **Zen Green** design system paired with warm amber accents for confidential internal notes:
 
 ```css
 :root {
+  /* Zen Green Brand Palette */
   --zg-primary: #006B3C;          /* Deep Zen Green Header & Brand */
   --zg-primary-hover: #00542F;    /* Hover State Primary */
   --zg-accent: #0B7A46;           /* Buttons & Interactive Elements */
   --zg-accent-hover: #096339;     /* Accent Hover */
   --zg-surface-selected: #EAF6EF; /* Selected Row / Active Surface Light Tint */
   --zg-surface-card: #FFFFFF;     /* Pure White Card Surfaces */
-  --zg-bg-main: #F8FAF9;          /* Subtle Off-White Page Background */
-  --zg-border: #D1E5D9;          /* Soft Greenish Border */
+  --zg-bg-main: #F8FAF9;          /* Muted Off-White Page Background */
+  --zg-border: #D1E5D9;           /* Soft Greenish Border */
   --zg-text-heading: #122119;     /* Dark High-Contrast Text */
   --zg-text-body: #3A4B40;        /* Muted Body Text */
-  --zg-badge-new: #EBF5F0;        /* Status Pill - New */
+
+  /* Warm Amber Palette (Restricted Internal Notes) */
+  --amber-bg: #FFF8E1;            /* Soft Amber Container Background */
+  --amber-border: #FFE082;        /* Amber Border Highlight */
+  --amber-header: #856404;        /* Dark Amber Header Text */
+  --amber-badge: #FFC107;         /* Amber Role & Lock Badge */
 }
 ```
 
 ### Key UI Features
-- **Header Navbar:** Styled in Zen Green (`#006B3C`) with active user badge and simulated login selector modal.
-- **Read-Only Fields:** Styled with soft gray-green background (`#F4F8F5`) to clearly distinguish read-only metadata from editable inputs.
-- **Responsive Layout:** Automatically transforms table views on desktop (≥992px) to stacked cards on tablet/mobile (<768px).
+- **Role-Based Navigation Header:** Renders appropriate menus according to user role (`REQUESTER`, `IT_STAFF`, `ADMINISTRATOR`) along with user name and role badge.
+- **Visually Separated Notes:** Public Comments display in clean Zen Green cards, while Internal Notes feature warm amber containers with lock icons (`bi-lock-fill`) to visually reinforce privacy.
+- **Responsive Layout:** Adapts seamlessly between Desktop (≥992px), Tablet (768px), and Mobile (<768px) views.
 
 ---
 
@@ -240,19 +292,20 @@ TokTickIT utilizes a custom **Zen Green** design token system built on top of Bo
 ### Prerequisites
 - **Node.js:** `v18.x` or later
 - **npm:** `v9.x` or later
-- **PostgreSQL:** `v15+` (local service or Docker container)
+- **PostgreSQL:** `v15+` (local installation or Docker container)
 
 ---
 
 ### Environment Configuration
 
 #### Backend Environment (`server/.env`)
-Create `server/.env` with the following variables:
+Create `server/.env` with the following configuration:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/toktickit_db?schema=public"
 PORT=3000
 NODE_ENV=development
+JWT_SECRET="toktickit_super_secret_jwt_key_2026"
 ```
 
 ---
@@ -274,11 +327,30 @@ NODE_ENV=development
    npm run prisma:migrate
    ```
 
-4. Execute idempotent database seeding:
+4. Execute database seeding:
    ```bash
    npm run prisma:seed
    ```
-   *Seeding output populates 4 categories, 6 related systems, 4 active requesters, and 1 inactive requester.*
+   *Populates seed categories, related systems, active/inactive users across all 3 roles, and ticket threads.*
+
+---
+
+### Default Development Accounts
+
+All development seed accounts use the default password: **`Password123!`**
+
+| Email | Role | Status | Description / Purpose |
+|---|---|---|---|
+| `admin@toktickit.com` | `ADMINISTRATOR` | Active | Primary Administrator account for user management |
+| `michael.brown@toktickit.com` | `IT_STAFF` | Active | Senior IT Staff member (Ticket Queue & Operations) |
+| `sarah.johnson@toktickit.com` | `IT_STAFF` | Active | IT Staff member (Ownership & Priority management) |
+| `david.lee@toktickit.com` | `IT_STAFF` | Active | IT Staff member |
+| `kevin.patel@toktickit.com` | `IT_STAFF` | Inactive | Inactive staff account (login rejection testing) |
+| `alice@toktickit.io` | `REQUESTER` | Active | Requester with active tickets and public comments |
+| `bob@toktickit.io` | `REQUESTER` | Active | Requester with open tickets |
+| `charlie@toktickit.io` | `REQUESTER` | Active | Requester with unassigned tickets |
+| `diana@toktickit.io` | `REQUESTER` | Active (`mustChangePassword: true`) | User for testing mandatory password change workflow |
+| `evan@toktickit.io` | `REQUESTER` | Inactive | Inactive requester account |
 
 ---
 
@@ -289,7 +361,7 @@ NODE_ENV=development
 cd server
 npm run dev
 ```
-- Backend REST API will start at **`http://localhost:3000`**.
+- REST API runs at **`http://localhost:3000`**.
 
 #### Start Frontend Client (`client/`)
 ```bash
@@ -297,68 +369,95 @@ cd client
 npm install
 npm run dev
 ```
-- Frontend application will start at **`http://localhost:5173`**.
+- Client runs at **`http://localhost:5173`**.
 
 ---
 
 ## 🔌 REST API Contract Reference
 
-All secured endpoints require the `x-user-id` header representing the active requester ID.
+All protected endpoints require the `Authorization: Bearer <token>` HTTP header.
 
-| Method | Endpoint | Query / Body Params | Headers | Expected Status | Description |
-|---|---|---|---|---|---|
-| `GET` | `/api/health` | None | None | `200 OK` | System health check |
-| `GET` | `/api/requesters` | None | None | `200 OK` | List active development requesters (`isActive = true`) |
-| `GET` | `/api/categories` | None | None | `200 OK` | List active ticket categories |
-| `GET` | `/api/related-systems` | None | None | `200 OK` | List active related systems |
-| `POST` | `/api/tickets` | `summary`, `description`, `categoryId`, `relatedSystemId`, `requestedPriority`, `files` | `x-user-id` | `201 Created` | Create new ticket with file attachments |
-| `GET` | `/api/tickets/my` | `search`, `categoryId`, `priority`, `status`, `sort`, `order`, `page`, `limit` | `x-user-id` | `200 OK` | Paginated ticket list strictly filtered by requester ID |
-| `GET` | `/api/tickets/:id` | None | `x-user-id` | `200 OK` / `403` / `404` | Get single ticket detail (enforces requester ownership) |
-| `POST` | `/api/tickets/:id/attachments` | `file` (multipart) | `x-user-id` | `201 Created` / `400` | Add attachment to existing ticket (max 5 active total) |
-| `GET` | `/api/attachments/:id/download` | None | `x-user-id` | `200 OK` / `400` / `403` | Secure file download (blocked if soft-removed) |
-| `DELETE` | `/api/tickets/:id/attachments/:attachmentId` | `removalReason` (JSON body) | `x-user-id` | `200 OK` / `403` / `404` | Soft-remove attachment (`isRemoved = true`) |
+### 🔑 Authentication (`/api/auth`)
+
+| Method | Endpoint | Description | Expected Status |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | Authenticate user with email and password | `200 OK` / `401` |
+| `GET` | `/api/auth/me` | Fetch authenticated user profile | `200 OK` / `401` |
+| `POST` | `/api/auth/change-password` | Change password (required if `mustChangePassword = true`) | `200 OK` / `400` / `401` |
+| `POST` | `/api/auth/logout` | Terminate active user session | `200 OK` |
+
+### 🎫 Requester Operations (`/api/tickets`)
+
+| Method | Endpoint | Description | Roles Allowed | Expected Status |
+|---|---|---|---|---|
+| `GET` | `/api/tickets/my` | List tickets owned by authenticated requester | `REQUESTER` | `200 OK` |
+| `POST` | `/api/tickets` | Create new IT service ticket | All Roles | `201 Created` |
+| `GET` | `/api/tickets/:id` | Get single ticket detail | Ticket Owner, IT Staff, Admin | `200 OK` / `403` / `404` |
+| `PATCH` | `/api/tickets/:id/indicate-resolved` | Signal problem appears resolved | Ticket Owner | `200 OK` / `403` |
+
+### 🛠 IT Staff Operations (`/api/tickets`)
+
+| Method | Endpoint | Description | Roles Allowed | Expected Status |
+|---|---|---|---|---|
+| `GET` | `/api/tickets/queue` | Paginated ticket queue with search & filters | `IT_STAFF`, `ADMINISTRATOR` | `200 OK` / `403` |
+| `PATCH` | `/api/tickets/:id/assign` | Claim or reassign ticket ownership | `IT_STAFF`, `ADMINISTRATOR` | `200 OK` / `400` / `403` |
+| `PATCH` | `/api/tickets/:id/it-priority` | Update IT Priority (`Low`, `Medium`, `High`, `Urgent`) | `IT_STAFF`, `ADMINISTRATOR` | `200 OK` / `400` / `403` |
+| `PATCH` | `/api/tickets/:id/status` | Formal status transition (verifies status matrix) | `IT_STAFF`, `ADMINISTRATOR` | `200 OK` / `400` / `403` |
+
+### 💬 Comments & Notes (`/api/tickets/:id`)
+
+| Method | Endpoint | Description | Roles Allowed | Expected Status |
+|---|---|---|---|---|
+| `GET` | `/api/tickets/:id/comments` | List public comments on ticket | Ticket Owner, IT Staff, Admin | `200 OK` / `403` |
+| `POST` | `/api/tickets/:id/comments` | Post append-only public comment | Ticket Owner, IT Staff, Admin | `201 Created` / `400` |
+| `GET` | `/api/tickets/:id/internal-notes` | List confidential internal notes | `IT_STAFF`, `ADMINISTRATOR` | `200 OK` / `403` |
+| `POST` | `/api/tickets/:id/internal-notes` | Post confidential internal note | `IT_STAFF`, `ADMINISTRATOR` | `201 Created` / `400` / `403` |
+
+### 👥 Administrator User Management (`/api/admin/users`)
+
+| Method | Endpoint | Description | Roles Allowed | Expected Status |
+|---|---|---|---|---|
+| `GET` | `/api/admin/users` | List users with search & role filters | `ADMINISTRATOR` | `200 OK` / `403` |
+| `POST` | `/api/admin/users` | Create new user account | `ADMINISTRATOR` | `201 Created` / `409` |
+| `PATCH` | `/api/admin/users/:id` | Update user profile, role, or active status | `ADMINISTRATOR` | `200 OK` / `400` / `409` |
+| `POST` | `/api/admin/users/:id/reset-password` | Set initial password (`mustChangePassword: true`) | `ADMINISTRATOR` | `200 OK` / `400` / `404` |
 
 ---
 
 ## 🧪 Testing & Quality Assurance
 
 ### 1. Server Integration Test Suite (`server/`)
-Tests API endpoint contracts, Multer file upload validation, Prisma database transactions, requester data isolation, and security headers.
+Tests JWT authentication, RBAC middleware authorization, status transition enforcement, public comments, internal note confidentiality, and admin safety rules.
 
 ```bash
 cd server
 npm test
 ```
-- **Result:** **7 test files, 36 passing tests (100% pass rate)**.
+- **Result:** **13 test files, 88 passing tests (100% pass rate)**.
 
 ---
 
 ### 2. Client Component Test Suite (`client/`)
-Tests Requester Context Selector, Ticket Form validation, My Tickets search/filters/pagination, Ticket Detail view, and attachment soft-deletion modal.
+Tests Login, Mandatory Change Password, Staff Ticket Queue, Staff Ticket Detail (IT Priority, Status, Claiming), User Management, and Requester workflows.
 
 ```bash
 cd client
 npm test
 ```
-- **Result:** **6 test files, 32 passing tests (100% pass rate)**.
+- **Result:** **24 test files, 120 passing tests (100% pass rate)**.
 
 ---
 
 ### 3. Playwright E2E & Responsive Visual Audit (`root/`)
-Automated end-to-end test verifying the complete user flow from requester selection to ticket creation, dashboard lookup, ticket detail view, attachment soft-removal, and cross-requester isolation.
+Automated Playwright end-to-end tests verifying multi-role authentication, staff queue workflows, public comments, internal notes, and administrator user management.
 
 ```bash
-# Run E2E test suite headless
-npx playwright test
-
-# Run E2E test suite with UI runner
-npx playwright test --ui
+# Run Lab 03 Playwright E2E test suite
+npx playwright test e2e/lab-03/
 ```
-- **Result:** **1 test suite passing (100% pass rate)**.
+- **Result:** **3 test suites, 7 tests passing (100% pass rate)**.
 - **Responsive Artifacts Generated:**
-  - `artifacts/lab-02/screenshots/desktop-1280px.png`
-  - `artifacts/lab-02/screenshots/tablet-768px.png`
-  - `artifacts/lab-02/screenshots/mobile-375px.png`
+  - Screenshots saved under `artifacts/lab-03/screenshots/` across Desktop (1280px), Tablet (768px), and Mobile (375px).
 
 ---
 
@@ -366,56 +465,59 @@ npx playwright test --ui
 
 ```text
 TokTickIT/
-├── artifacts/                     # Generated visual audit screenshots
-│   └── lab-02/
-│       └── screenshots/           # Desktop, Tablet, & Mobile screenshots
+├── artifacts/                     # Visual audit screenshots
+│   └── lab-03/
+│       └── screenshots/           # Authentication, Staff Queue, Staff Detail, User Admin screenshots
 ├── client/                        # Frontend React Application
 │   ├── public/                    # Static assets
 │   ├── src/
-│   │   ├── api.ts                 # API client wrapper with x-user-id header
-│   │   ├── App.tsx                # Main App router & header navbar
-│   │   ├── index.css              # Zen Green design system tokens & custom CSS
-│   │   ├── components/            # UI components (Navbar, Modal, Forms)
-│   │   └── pages/                 # Pages (ContextSelection, TicketCreate, MyTickets, TicketDetail)
-│   └── tests/lab-02/              # React component test suites (Vitest + RTL)
+│   │   ├── api.ts                 # API client wrapper with Bearer token header
+│   │   ├── App.tsx                # Main App router & navigation header
+│   │   ├── index.css              # Zen Green design system & warm amber notes styles
+│   │   ├── components/            # UI components (Login, ChangePassword, StaffQueue, UserMgmt, etc.)
+│   │   └── pages/                 # Page components
+│   └── tests/lab-03/              # React component test suites (Vitest + RTL)
 ├── server/                        # Backend Express REST API
 │   ├── prisma/
-│   │   ├── schema.prisma          # PostgreSQL Prisma database schema
+│   │   ├── schema.prisma          # PostgreSQL Prisma schema (User, Ticket, Comment, Note, etc.)
 │   │   ├── migrations/            # SQL migration history
-│   │   └── seed.ts                # Idempotent database seed script
+│   │   └── seed.ts                # Database seed script
 │   ├── src/
-│   │   ├── app.ts                 # Express application setup & middleware
-│   │   ├── index.ts               # Server startup entrypoint
-│   │   ├── db.ts                  # Prisma database client instance
-│   │   ├── middleware/            # Header auth & file upload middleware
-│   │   └── routes/                # Express REST API route handlers
-│   ├── uploads/                   # Sanitized file attachment storage
-│   └── tests/lab-02/              # Supertest API endpoint integration tests
+│   │   ├── app.ts                 # Express app, routes, & RBAC middleware
+│   │   ├── auth.ts                # JWT authentication utility & password hashing
+│   │   └── index.ts               # Server entrypoint
+│   └── tests/lab-03/              # Supertest integration API test suites
 ├── docs/                          # Project documentation
 │   ├── lab-01/                    # Lab 01 deliverables
-│   └── lab-02/                    # Lab 02 deliverables
-│       ├── specification.md       # Complete Lab 02 specification & BRs
+│   ├── lab-02/                    # Lab 02 deliverables
+│   └── lab-03/                    # Lab 03 deliverables
+│       ├── specification.md       # Full Lab 03 specification & BRs
 │       ├── api-spec.md            # REST API contract specification
-│       ├── ui-spec.md             # Zen Green design system UI specification
+│       ├── ui-spec.md             # Zen Green design system & UI specification
 │       ├── tests.md               # Test plan & Given-When-Then AC matrix
 │       ├── reviewer.md            # Peer review record & approvals
-│       └── ai-use.md              # AI pair programming log & reflection
+│       ├── ai-use.md              # AI pair programming log & reflection
+│       └── Lab3_Requirements_Checklist.md # Sprint checklist & coverage tracking
 └── e2e/                           # Playwright end-to-end test suite
-    └── requester-ticket-flow.spec.ts
+    └── lab-03/
+        ├── authentication.spec.ts
+        ├── staff-ticket-flow.spec.ts
+        └── user-administration.spec.ts
 ```
 
 ---
 
 ## 📄 Documentation & Lab Deliverables
 
-All required Lab 02 deliverables are documented in `docs/lab-02/`:
+All required Lab 03 deliverables are documented under `docs/lab-03/`:
 
-- 📜 [**System Specification (`specification.md`)**](file:///d:/TokTickIT/docs/lab-02/specification.md): Complete sprint goal, functional requirements, and business rules (BR-01 to BR-08).
-- 🔌 [**REST API Specification (`api-spec.md`)**](file:///d:/TokTickIT/docs/lab-02/api-spec.md): Endpoint routes, headers, body contracts, and status codes.
-- 🎨 [**UI Specification (`ui-spec.md`)**](file:///d:/TokTickIT/docs/lab-02/ui-spec.md): Zen Green theme tokens, responsive breakpoints, and accessibility.
-- 🧪 [**Test Strategy & AC Matrix (`tests.md`)**](file:///d:/TokTickIT/docs/lab-02/tests.md): Acceptance criteria traceability and test plan.
-- 🤝 [**Peer Review Record (`reviewer.md`)**](file:///d:/TokTickIT/docs/lab-02/reviewer.md): Pull request review logs, comments, and approvals.
-- 🤖 [**AI Use & Reflection (`ai-use.md`)**](file:///d:/TokTickIT/docs/lab-02/ai-use.md): AI pair programming prompt logs and reflection.
+- 📜 [**System Specification (`specification.md`)**](file:///d:/TokTickIT/docs/lab-03/specification.md): System scope, functional requirements (FR-01 to FR-12), business rules (BR-01 to BR-18), and RBAC matrix.
+- 🔌 [**REST API Specification (`api-spec.md`)**](file:///d:/TokTickIT/docs/lab-03/api-spec.md): Full REST API endpoint contracts, request/response JSON schemas, and authorization rules.
+- 🎨 [**UI Specification (`ui-spec.md`)**](file:///d:/TokTickIT/docs/lab-03/ui-spec.md): Zen Green theme tokens, warm amber internal note styles, responsive layouts, and accessibility standards.
+- 🧪 [**Test Strategy & AC Matrix (`tests.md`)**](file:///d:/TokTickIT/docs/lab-03/tests.md): Acceptance criteria traceability, integration test cases, component test plan, and E2E visual audit strategy.
+- 🤝 [**Peer Review Record (`reviewer.md`)**](file:///d:/TokTickIT/docs/lab-03/reviewer.md): Pull request review logs, comments, responses, and reviewer approvals.
+- 🤖 [**AI Use & Reflection (`ai-use.md`)**](file:///d:/TokTickIT/docs/lab-03/ai-use.md): AI pair programming log, prompt history, and reflection on AI assistance.
+- ✅ [**Requirements Checklist (`Lab3_Requirements_Checklist.md`)**](file:///d:/TokTickIT/docs/lab-03/Lab3_Requirements_Checklist.md): Step-by-step checklist verifying completion of all Lab 03 features and deliverables.
 
 ---
 
@@ -423,4 +525,4 @@ All required Lab 02 deliverables are documented in `docs/lab-02/`:
 
 - **Author:** Yotsapoom Liupolvanish (`67070503493`) — GitHub: [@JEWKEW](https://github.com/JEWKEW)
 - **Peer Reviewer:** Chaiyaphoom Chenchirotphiphat (`67070503410`) — GitHub: [@maneejames](https://github.com/maneejames)
-- **AI Pair Assistant:** Gemini 3.6 Flash (Antigravity AI Assistant)
+- **AI Pair Assistant:** Gemini 3.6 Flash (Antigravity AI Assistant)
