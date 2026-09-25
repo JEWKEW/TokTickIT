@@ -121,3 +121,19 @@ The application navigation replaces the Lab 2 simulated requester context dropdo
 | **User Table** | Multi-column data grid | Horizontal scroll grid | Stacked user cards |
 | **Forms & Modals** | Centered modal (600px) | Centered modal (80%) | Full-width slide-over modal |
 | **Overflow & Scroll** | `scrollWidth <= innerWidth` | `scrollWidth <= innerWidth` | `scrollWidth <= innerWidth` |
+
+---
+
+## 5. Responsive Visual Checklist & Screenshots Audit
+
+Verification audit of captured responsive screenshots (`artifacts/lab-03/screenshots/`) across Desktop (1280px), Tablet (768px), and Mobile (375px) viewports:
+
+| Screen / Feature Area | Zen Green Token Consistency | Permitted Role Navigation | Badge Consistency | Editable vs Read-Only Fields | Validation Placement | Visible Focus States | No Content Clipping | No Overlapping Elements | No Horizontal Overflow | Audit Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Authentication (Login)** | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | ✅ Verified |
+| **Change Password** | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | ✅ Verified |
+| **IT Staff Ticket Queue** | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | ✅ Verified |
+| **IT Staff Ticket Detail** | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | ✅ Verified |
+| **User Management** | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | ✅ Verified |
+| **Requester View & Feedback** | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | [x] Pass | ✅ Verified |
+

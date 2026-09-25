@@ -100,27 +100,109 @@ Tested under Vitest, React Testing Library, and jsdom.
 
 Full Playwright browser workflow suites tested across Desktop (1280px), Tablet (768px), and Mobile (375px).
 
-| Test ID | Test File / Flow | Scenario / Description | Expected Result |
-| :--- | :--- | :--- | :--- |
-| **TC-E2E-01** | `authentication.spec.ts` | Login ➔ Mandatory Password Change ➔ Logout ➔ Direct URL Protection | Successful first-login password change flow, navbar profile update, logout cleanup, and route blocking. |
-| **TC-E2E-02** | `staff-ticket-flow.spec.ts` | IT Staff Queue ➔ Claim Ticket ➔ Change IT Priority ➔ Post Public Comment & Internal Note ➔ Transition Status | Complete IT Staff operational lifecycle across desktop, tablet, and mobile viewports. |
-| **TC-E2E-03** | `user-administration.spec.ts` | Admin User Management ➔ Create User ➔ Edit Profile ➔ Reset Initial Password ➔ Verify Safety Rules | Admin creates account, attempts self-deactivation (blocked), resets password, and verifies new user initial login. |
+| Test ID | Test File / Flow | Scenario / Description | Expected Result | Automated Test File | Final |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **TC-E2E-01** | `authentication.spec.ts` | Login ➔ Mandatory Password Change ➔ Logout ➔ Direct URL Protection | Successful first-login password change flow, navbar profile update, logout cleanup, and route blocking. | `e2e/lab-03/authentication.spec.ts` | Pass |
+| **TC-E2E-02** | `staff-ticket-flow.spec.ts` | IT Staff Queue ➔ Claim Ticket ➔ Change IT Priority ➔ Post Public Comment & Internal Note ➔ Transition Status | Complete IT Staff operational lifecycle across desktop, tablet, and mobile viewports. | `e2e/lab-03/staff-ticket-flow.spec.ts` | Pass |
+| **TC-E2E-03** | `user-administration.spec.ts` | Admin User Management ➔ Create User ➔ Edit Profile ➔ Reset Initial Password ➔ Verify Safety Rules | Admin creates account, attempts self-deactivation (blocked), resets password, and verifies new user initial login. | `e2e/lab-03/user-administration.spec.ts` | Pass |
 
 ---
 
 ## 4. Acceptance Criteria (AC) Traceability Matrix
 
-| AC ID | Acceptance Criteria Summary | Mapped Test Cases | Planned Status |
-| :--- | :--- | :--- | :---: |
-| **AC-01** | Login returns user profile, role, & token | `TC-API-AUTH-01`, `TC-UI-01`, `TC-E2E-01` | ✅ Planned |
-| **AC-02** | Mandatory password change enforcement | `TC-API-AUTH-05`, `TC-API-AUTHZ-05`, `TC-UI-02`, `TC-E2E-01` | ✅ Planned |
-| **AC-03** | Invalid credential / inactive account handling | `TC-API-AUTH-02`, `TC-API-AUTH-03`, `TC-UI-01` | ✅ Planned |
-| **AC-04** | Requester ticket ownership isolation | `TC-API-AUTHZ-01`, `TC-API-AUTHZ-02` | ✅ Planned |
-| **AC-05** | Public comment & indicate resolved | `TC-API-WORKFLOW-05`, `TC-API-COMM-01`, `TC-E2E-02` | ✅ Planned |
-| **AC-06** | Internal Note forbidden for Requester | `TC-API-COMM-04` | ✅ Planned |
-| **AC-07** | IT Queue search, filter, sort, & pagination | `TC-API-QUEUE-01`, `TC-API-QUEUE-02`, `TC-UI-03`, `TC-E2E-02` | ✅ Planned |
-| **AC-08** | IT Staff claim ownership, priority, & status transition | `TC-API-WORKFLOW-01`, `TC-API-WORKFLOW-02`, `TC-API-WORKFLOW-03`, `TC-UI-04`, `TC-E2E-02` | ✅ Planned |
-| **AC-09** | Public comments & internal notes operational use | `TC-API-COMM-02`, `TC-API-COMM-03`, `TC-UI-04`, `TC-E2E-02` | ✅ Planned |
-| **AC-10** | Admin User Management listing & creation | `TC-API-ADMIN-01`, `TC-API-ADMIN-02`, `TC-UI-05`, `TC-E2E-03` | ✅ Planned |
-| **AC-11** | Admin safety rules (self-deactivation & last admin) | `TC-API-ADMIN-05`, `TC-API-ADMIN-06`, `TC-E2E-03` | ✅ Planned |
-| **AC-12** | Duplicate email rejection | `TC-API-ADMIN-03`, `TC-UI-05` | ✅ Planned |
+| AC ID | Acceptance Criteria Summary | Mapped Test Cases | Planned Status | Final Status |
+| :--- | :--- | :--- | :---: | :---: |
+| **AC-01** | Login returns user profile, role, & token | `TC-API-AUTH-01`, `TC-UI-01`, `TC-E2E-01` | ✅ Planned | Pass |
+| **AC-02** | Mandatory password change enforcement | `TC-API-AUTH-05`, `TC-API-AUTHZ-05`, `TC-UI-02`, `TC-E2E-01` | ✅ Planned | Pass |
+| **AC-03** | Invalid credential / inactive account handling | `TC-API-AUTH-02`, `TC-API-AUTH-03`, `TC-UI-01` | ✅ Planned | Pass |
+| **AC-04** | Requester ticket ownership isolation | `TC-API-AUTHZ-01`, `TC-API-AUTHZ-02` | ✅ Planned | Pass |
+| **AC-05** | Public comment & indicate resolved | `TC-API-WORKFLOW-05`, `TC-API-COMM-01`, `TC-E2E-02` | ✅ Planned | Pass |
+| **AC-06** | Internal Note forbidden for Requester | `TC-API-COMM-04` | ✅ Planned | Pass |
+| **AC-07** | IT Queue search, filter, sort, & pagination | `TC-API-QUEUE-01`, `TC-API-QUEUE-02`, `TC-UI-03`, `TC-E2E-02` | ✅ Planned | Pass |
+| **AC-08** | IT Staff claim ownership, priority, & status transition | `TC-API-WORKFLOW-01`, `TC-API-WORKFLOW-02`, `TC-API-WORKFLOW-03`, `TC-UI-04`, `TC-E2E-02` | ✅ Planned | Pass |
+| **AC-09** | Public comments & internal notes operational use | `TC-API-COMM-02`, `TC-API-COMM-03`, `TC-UI-04`, `TC-E2E-02` | ✅ Planned | Pass |
+| **AC-10** | Admin User Management listing & creation | `TC-API-ADMIN-01`, `TC-API-ADMIN-02`, `TC-UI-05`, `TC-E2E-03` | ✅ Planned | Pass |
+| **AC-11** | Admin safety rules (self-deactivation & last admin) | `TC-API-ADMIN-05`, `TC-API-ADMIN-06`, `TC-E2E-03` | ✅ Planned | Pass |
+| **AC-12** | Duplicate email rejection | `TC-API-ADMIN-03`, `TC-UI-05` | ✅ Planned | Pass |
+
+---
+
+## 5. Automated Test Execution Evidence Log
+
+### 5.1 Backend Integration Test Suite Output (`server/`)
+```
+> toktickit-server@1.0.0 test
+> vitest run
+
+ RUN  v2.1.9 D:/TokTickIT/server
+
+ ✓ tests/lab-01/health.test.ts (1 test) 44ms
+ ✓ tests/lab-02/my-tickets.test.ts (5 tests) 149ms
+ ✓ tests/lab-03/staff-queue.api.test.ts (6 tests) 161ms
+ ✓ tests/lab-02/ticket-detail.test.ts (6 tests) 156ms
+ ✓ tests/lab-02/requesters.test.ts (3 tests) 189ms
+ ✓ tests/lab-01/categories.test.ts (1 test) 189ms
+ ✓ tests/lab-03/requester-workflow.api.test.ts (8 tests) 227ms
+ ✓ tests/lab-03/comments-notes.api.test.ts (9 tests) 206ms
+ ✓ tests/lab-03/staff-ticket-detail.api.test.ts (12 tests) 235ms
+ ✓ tests/lab-02/attachments.test.ts (15 tests) 321ms
+ ✓ tests/lab-02/tickets.test.ts (5 tests) 354ms
+ ✓ tests/lab-03/users-admin.api.test.ts (8 tests) 571ms
+ ✓ tests/lab-03/auth.api.test.ts (9 tests) 968ms
+
+ Test Files  13 passed (13)
+      Tests  88 passed (88)
+```
+
+### 5.2 Frontend UI Component Test Suite Output (`client/`)
+```
+> toktickit-client@1.0.0 test
+> vitest run
+
+ RUN  v2.1.9 D:/TokTickIT/client
+
+ ✓ tests/lab-02/CreateTicketForm.test.tsx (5 tests)
+ ✓ tests/lab-02/TicketDetail.test.js (5 tests)
+ ✓ tests/lab-03/ChangePassword.test.js (4 tests)
+ ✓ tests/lab-03/ChangePassword.test.tsx (4 tests)
+ ✓ tests/lab-02/CreateTicketForm.test.js (5 tests)
+ ✓ tests/lab-02/TicketDetail.test.tsx (5 tests)
+ ✓ tests/lab-02/MyTicketsList.test.js (9 tests)
+ ✓ tests/lab-03/StaffTicketQueue.test.js (6 tests)
+ ✓ tests/lab-03/StaffTicketDetail.test.js (5 tests)
+ ✓ tests/lab-03/UserManagement.test.tsx (7 tests)
+ ✓ tests/lab-02/MyTicketsList.test.tsx (9 tests)
+ ✓ tests/lab-03/StaffTicketDetail.test.tsx (5 tests)
+ ✓ tests/lab-03/UserManagement.test.js (7 tests)
+ ✓ tests/lab-03/RequesterWorkflow.test.js (2 tests)
+ ✓ tests/lab-03/StaffTicketQueue.test.tsx (6 tests)
+ ✓ tests/lab-02/AttachmentLifecycle.test.js (5 tests)
+ ✓ tests/lab-02/AttachmentLifecycle.test.tsx (5 tests)
+ ✓ tests/lab-03/Login.test.js (4 tests)
+ ✓ tests/lab-03/Login.test.tsx (4 tests)
+ ✓ tests/lab-03/RequesterWorkflow.test.tsx (2 tests)
+ ✓ tests/lab-01/App.test.js (4 tests)
+ ✓ tests/lab-01/App.test.tsx (4 tests)
+
+ Test Files  24 passed (24)
+      Tests  120 passed (120)
+```
+
+### 5.3 Playwright End-to-End Suite Output (`e2e/lab-03/`)
+```
+> toktickit-root@1.0.0 test:e2e
+> playwright test e2e/lab-03/
+
+Running 7 tests using 1 worker
+
+  ok 1 [chromium] › e2e\lab-03\authentication.spec.ts › E2E Authentication, Password Management & Role Access (Lab 3) › Invalid credentials & Inactive account login handling with safe errors (1.9s)
+  ok 2 [chromium] › e2e\lab-03\authentication.spec.ts › E2E Authentication, Password Management & Role Access (Lab 3) › Valid login, Role-based Navigation, and Session Logout across roles (923ms)
+  ok 3 [chromium] › e2e\lab-03\authentication.spec.ts › E2E Authentication, Password Management & Role Access (Lab 3) › Initial-password login and Mandatory Change Password workflow (1.8s)
+  ok 4 [chromium] › e2e\lab-03\staff-ticket-flow.spec.ts › E2E Staff Ticket Flow & Operational Lifecycle (Lab 3) › IT Staff Queue: search, filter, sort, empty state, and ticket detail workflows (7.4s)
+  ok 5 [chromium] › e2e\lab-03\staff-ticket-flow.spec.ts › E2E Staff Ticket Flow & Operational Lifecycle (Lab 3) › Requester flow: Public Comments, Problem Appears Resolved indication, and Internal Notes restriction (2.7s)
+  ok 6 [chromium] › e2e\lab-03\user-administration.spec.ts › E2E User Administration & Safety Rules (Lab 3) › Admin user listing, search, filter, creation, duplicate email rejection, and editing (5.2s)
+  ok 7 [chromium] › e2e\lab-03\user-administration.spec.ts › E2E User Administration & Safety Rules (Lab 3) › Non-Administrator direct access restriction (386ms)
+
+  7 passed (21.1s)
+```
+
