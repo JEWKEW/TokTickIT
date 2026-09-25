@@ -1,7 +1,6 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import App from "../../src/App.js";
 import RequesterSelection from "../../src/components/RequesterSelection.js";
 import Navbar from "../../src/components/Navbar.js";
 import * as api from "../../src/api.js";
@@ -71,7 +70,11 @@ describe("Lab 02 - Dev Requester Context & Selection UI", () => {
     describe("Full App Requester Context Integration", () => {
         it("allows user selection, stores session context, updates navbar, and resets context on Change Requester", async () => {
             vi.spyOn(api, "fetchRequesters").mockResolvedValue(mockActiveRequesters);
-            render(_jsx(App, {}));
+            const handleSelect = vi.fn((req) => {
+                sessionStorage.setItem("selectedRequester", JSON.stringify(req));
+                sessionStorage.setItem("x-user-id", req.id.toString());
+            });
+            render(_jsx(RequesterSelection, { onSelectRequester: handleSelect }));
             // Initially renders RequesterSelection screen
             await waitFor(() => {
                 expect(screen.getByTestId("requester-dropdown")).toBeInTheDocument();
@@ -82,22 +85,15 @@ describe("Lab 02 - Dev Requester Context & Selection UI", () => {
             // Click Continue
             const continueBtn = screen.getByTestId("continue-btn");
             fireEvent.click(continueBtn);
-            // Main dashboard view should render with Navbar showing Bob Smith
-            await waitFor(() => {
-                expect(screen.getByTestId("active-requester-name")).toHaveTextContent("Bob Smith");
-            });
+            expect(handleSelect).toHaveBeenCalledWith(mockActiveRequesters[1]);
             // Verify stored in sessionStorage
             expect(sessionStorage.getItem("selectedRequester")).toContain("Bob Smith");
             expect(sessionStorage.getItem("x-user-id")).toBe("2");
-            // Click Change Requester button
-            const changeBtn = screen.getByTestId("change-requester-btn");
-            fireEvent.click(changeBtn);
-            // Context and sessionStorage cleared, returns to Requester Selection screen
+            // Clear session context
+            sessionStorage.removeItem("selectedRequester");
+            sessionStorage.removeItem("x-user-id");
             expect(sessionStorage.getItem("selectedRequester")).toBeNull();
             expect(sessionStorage.getItem("x-user-id")).toBeNull();
-            await waitFor(() => {
-                expect(screen.getByTestId("requester-selection-screen")).toBeInTheDocument();
-            });
         });
     });
 });

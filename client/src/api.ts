@@ -27,16 +27,35 @@ export interface Ticket {
   summary: string;
   description: string;
   requestedPriority: string;
+  itPriority?: string;
   currentStatus: string;
   requesterId: number;
+  ownerId?: number | null;
   categoryId: number;
   relatedSystemId: number;
   category?: Category;
   relatedSystem?: RelatedSystem;
   requester?: Requester;
+  owner?: { id: number; name: string; email: string } | null;
   attachments?: Attachment[];
+  requesterResolvedIndicated?: boolean;
+  requesterResolvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+
+export interface PublicComment {
+  id: number;
+  ticketId: number;
+  authorId: number;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: number;
+    name: string;
+    role: string;
+  };
 }
 
 export interface SystemStatus {
@@ -280,5 +299,458 @@ export async function removeAttachment(
     throw new Error(data?.error?.message || "Failed to remove attachment");
   }
 }
+
+export async function indicateTicketResolved(
+  ticketId: number,
+  userId: number
+): Promise<{ id: number; requesterResolvedIndicated: boolean; requesterResolvedAt: string }> {
+  const url = `${API_URL}/api/tickets/${ticketId}/indicate-resolved`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to indicate problem resolved");
+  }
+
+  return data.data;
+}
+
+export async function fetchPublicComments(
+  ticketId: number,
+  userId: number
+): Promise<PublicComment[]> {
+  const url = `${API_URL}/api/tickets/${ticketId}/comments`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve public comments");
+  }
+
+  return data.data;
+}
+
+export async function postPublicComment(
+  ticketId: number,
+  content: string,
+  userId: number
+): Promise<PublicComment> {
+  const url = `${API_URL}/api/tickets/${ticketId}/comments`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "x-user-id": userId.toString(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to post public comment");
+  }
+
+  return data.data;
+}
+
+export interface StaffQueueFilterParams {
+  q?: string;
+  search?: string;
+  status?: string;
+  requestedPriority?: string;
+  itPriority?: string;
+  priority?: string;
+  categoryId?: number | string;
+  category?: string;
+  ownerId?: number | string;
+  sort?: string;
+  sortBy?: string;
+  order?: "asc" | "desc";
+  sortOrder?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+}
+
+export async function fetchTicketQueue(
+  params: StaffQueueFilterParams = {},
+  tokenOrUserId?: string | number
+): Promise<PaginatedTickets> {
+  const queryParams = new URLSearchParams();
+  const searchVal = params.q || params.search;
+  if (searchVal) queryParams.set("q", searchVal);
+  if (params.status && params.status !== "all") queryParams.set("status", params.status);
+  if (params.requestedPriority && params.requestedPriority !== "all") queryParams.set("requestedPriority", params.requestedPriority);
+  const itPrio = params.itPriority || params.priority;
+  if (itPrio && itPrio !== "all") queryParams.set("itPriority", itPrio);
+  if (params.categoryId && params.categoryId !== "all") queryParams.set("categoryId", String(params.categoryId));
+  if (params.ownerId !== undefined && params.ownerId !== "" && params.ownerId !== "all") queryParams.set("ownerId", String(params.ownerId));
+
+  const sortVal = params.sortBy || params.sort;
+  if (sortVal) queryParams.set("sortBy", sortVal);
+  const orderVal = params.sortOrder || params.order;
+  if (orderVal) queryParams.set("sortOrder", orderVal);
+  if (params.page) queryParams.set("page", String(params.page));
+  if (params.limit) queryParams.set("limit", String(params.limit));
+
+  const url = `${API_URL}/api/tickets/queue?${queryParams.toString()}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (typeof tokenOrUserId === "number") {
+    headers["x-user-id"] = tokenOrUserId.toString();
+  } else if (typeof tokenOrUserId === "string" && tokenOrUserId) {
+    if (tokenOrUserId.startsWith("Bearer ") || tokenOrUserId.length > 20) {
+      headers["Authorization"] = tokenOrUserId.startsWith("Bearer ") ? tokenOrUserId : `Bearer ${tokenOrUserId}`;
+    } else {
+      headers["x-user-id"] = tokenOrUserId;
+    }
+  } else {
+    const savedToken = sessionStorage.getItem("token") || localStorage.getItem("token");
+    const savedUserId = sessionStorage.getItem("x-user-id");
+    if (savedToken) {
+      headers["Authorization"] = `Bearer ${savedToken}`;
+    } else if (savedUserId) {
+      headers["x-user-id"] = savedUserId;
+    }
+  }
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve IT Staff ticket queue");
+  }
+
+  return data.data;
+}
+
+export interface InternalNote {
+  id: number;
+  ticketId: number;
+  authorId: number;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: number;
+    name: string;
+    role: string;
+  };
+}
+
+function buildAuthHeaders(tokenOrUserId?: string | number): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (typeof tokenOrUserId === "number") {
+    headers["x-user-id"] = tokenOrUserId.toString();
+  } else if (typeof tokenOrUserId === "string" && tokenOrUserId) {
+    if (tokenOrUserId.startsWith("Bearer ") || tokenOrUserId.length > 20) {
+      headers["Authorization"] = tokenOrUserId.startsWith("Bearer ") ? tokenOrUserId : `Bearer ${tokenOrUserId}`;
+    } else {
+      headers["x-user-id"] = tokenOrUserId;
+    }
+  } else {
+    const savedToken = sessionStorage.getItem("token") || localStorage.getItem("token");
+    const savedUserId = sessionStorage.getItem("x-user-id");
+    if (savedToken) {
+      headers["Authorization"] = `Bearer ${savedToken}`;
+    } else if (savedUserId) {
+      headers["x-user-id"] = savedUserId;
+    }
+  }
+  return headers;
+}
+
+export async function assignTicketOwner(
+  ticketId: number,
+  ownerId: number | null,
+  tokenOrUserId?: string | number
+): Promise<Ticket> {
+  const url = `${API_URL}/api/tickets/${ticketId}/assign`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify({ ownerId }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to assign ticket owner");
+  }
+  return data.data;
+}
+
+export async function updateITPriority(
+  ticketId: number,
+  itPriority: string,
+  tokenOrUserId?: string | number
+): Promise<Ticket> {
+  const url = `${API_URL}/api/tickets/${ticketId}/it-priority`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify({ itPriority }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to update IT Priority");
+  }
+  return data.data;
+}
+
+export async function updateTicketStatus(
+  ticketId: number,
+  status: string,
+  tokenOrUserId?: string | number
+): Promise<Ticket> {
+  const url = `${API_URL}/api/tickets/${ticketId}/status`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify({ status }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to update ticket status");
+  }
+  return data.data;
+}
+
+export async function fetchInternalNotes(
+  ticketId: number,
+  tokenOrUserId?: string | number
+): Promise<InternalNote[]> {
+  const url = `${API_URL}/api/tickets/${ticketId}/internal-notes`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: buildAuthHeaders(tokenOrUserId),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve internal notes");
+  }
+  return data.data;
+}
+
+export async function postInternalNote(
+  ticketId: number,
+  content: string,
+  tokenOrUserId?: string | number
+): Promise<InternalNote> {
+  const url = `${API_URL}/api/tickets/${ticketId}/internal-notes`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify({ content }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to post internal note");
+  }
+  return data.data;
+}
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  mustChangePassword: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export async function fetchAdminUsers(
+  params?: { q?: string; role?: string },
+  tokenOrUserId?: string | number
+): Promise<AdminUser[]> {
+  const query = new URLSearchParams();
+  if (params?.q) query.append("q", params.q);
+  if (params?.role) query.append("role", params.role);
+
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  const url = `${API_URL}/api/admin/users${queryString}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: buildAuthHeaders(tokenOrUserId),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to retrieve user list");
+  }
+  return data.data;
+}
+
+export async function createAdminUser(
+  userData: {
+    name: string;
+    email: string;
+    role: string;
+    isActive?: boolean;
+    initialPassword: string;
+  },
+  tokenOrUserId?: string | number
+): Promise<AdminUser> {
+  const url = `${API_URL}/api/admin/users`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify(userData),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to create user account");
+  }
+  return data.data;
+}
+
+export async function updateAdminUser(
+  userId: number,
+  updateData: {
+    name?: string;
+    email?: string;
+    role?: string;
+    isActive?: boolean;
+  },
+  tokenOrUserId?: string | number
+): Promise<AdminUser> {
+  const url = `${API_URL}/api/admin/users/${userId}`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify(updateData),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to update user profile");
+  }
+  return data.data;
+}
+
+export async function resetUserPassword(
+  userId: number,
+  initialPassword: string,
+  tokenOrUserId?: string | number
+): Promise<AdminUser> {
+  const url = `${API_URL}/api/admin/users/${userId}/reset-password`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: buildAuthHeaders(tokenOrUserId),
+    body: JSON.stringify({ initialPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to reset user password");
+  }
+  return data.data.user || data.data;
+}
+
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  mustChangePassword: boolean;
+  isActive: boolean;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Invalid email or password");
+  }
+
+  if (data.data?.token) {
+    sessionStorage.setItem("token", data.data.token);
+    sessionStorage.setItem("x-user-id", data.data.user.id.toString());
+  }
+
+  return data.data;
+}
+
+export async function getCurrentUser(tokenOrUserId?: string | number): Promise<AuthUser> {
+  const headers = buildAuthHeaders(tokenOrUserId);
+  const res = await fetch(`${API_URL}/api/auth/me`, {
+    method: "GET",
+    headers,
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Authentication required");
+  }
+
+  return data.data;
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmNewPassword: string,
+  tokenOrUserId?: string | number
+): Promise<{ message: string; mustChangePassword: boolean }> {
+  const headers = buildAuthHeaders(tokenOrUserId);
+  const res = await fetch(`${API_URL}/api/auth/change-password`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ currentPassword, newPassword, confirmNewPassword }),
+  });
+
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data?.error?.message || "Failed to change password");
+  }
+
+  return data.data;
+}
+
+export async function logout(tokenOrUserId?: string | number): Promise<void> {
+  const headers = buildAuthHeaders(tokenOrUserId);
+  sessionStorage.removeItem("token");
+  sessionStorage.removeItem("x-user-id");
+  sessionStorage.removeItem("selectedRequester");
+  localStorage.removeItem("token");
+  try {
+    await fetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+      headers,
+    });
+  } catch (_) {
+    // Ignore network error on logout
+  }
+}
+
+
+
 
 

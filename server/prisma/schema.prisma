@@ -1,5 +1,5 @@
-// Prisma schema — datasource and generator are pre-wired.
-// Your DATABASE_URL lives in server/.env (copy it from .env.example).
+// Prisma schema for TokTickIT — Lab 3 User, Roles, IT Staff Ticketing, and Admin Screens
+// Your DATABASE_URL lives in server/.env
 
 generator client {
   provider = "prisma-client-js"
@@ -10,12 +10,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model RequesterUser {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  isActive  Boolean  @default(true)
-  tickets   Ticket[]
+enum Role {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
+}
+
+model User {
+  id                 Int             @id @default(autoincrement())
+  name               String
+  email              String          @unique
+  passwordHash       String          @default("$2b$10$Ep5412l4w0H4/y/1u.123456789012345678901234567890123456")
+  role               Role            @default(REQUESTER)
+  mustChangePassword Boolean         @default(true)
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  ticketsSubmitted   Ticket[]        @relation("SubmittedTickets")
+  ticketsAssigned    Ticket[]        @relation("AssignedTickets")
+  publicComments     PublicComment[]
+  internalNotes      InternalNote[]
 }
 
 model Category {
@@ -34,22 +49,29 @@ model RelatedSystem {
 }
 
 model Ticket {
-  id                Int           @id @default(autoincrement())
-  ticketNumber      String        @unique
-  requesterId       Int
-  requester         RequesterUser @relation(fields: [requesterId], references: [id])
-  categoryId        Int
-  category          Category      @relation(fields: [categoryId], references: [id])
-  relatedSystemId   Int
-  relatedSystem     RelatedSystem @relation(fields: [relatedSystemId], references: [id])
-  summary           String
-  description       String
-  requestedPriority String
-  itPriority        String?
-  currentStatus     String        @default("New")
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  attachments       Attachment[]
+  id                         Int             @id @default(autoincrement())
+  ticketNumber               String          @unique
+  requesterId                Int
+  requester                  User            @relation("SubmittedTickets", fields: [requesterId], references: [id])
+  ownerId                    Int?
+  owner                      User?           @relation("AssignedTickets", fields: [ownerId], references: [id])
+  categoryId                 Int
+  category                   Category        @relation(fields: [categoryId], references: [id])
+  relatedSystemId            Int
+  relatedSystem              RelatedSystem   @relation(fields: [relatedSystemId], references: [id])
+  summary                    String
+  description                String
+  requestedPriority          String
+  itPriority                 String?
+  currentStatus              String          @default("New")
+  requesterResolvedIndicated Boolean         @default(false)
+  requesterResolvedAt        DateTime?
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+
+  attachments                Attachment[]
+  publicComments             PublicComment[]
+  internalNotes              InternalNote[]
 }
 
 model Attachment {
@@ -66,4 +88,22 @@ model Attachment {
   createdAt        DateTime  @default(now())
 }
 
+model PublicComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+}
 
+model InternalNote {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+}

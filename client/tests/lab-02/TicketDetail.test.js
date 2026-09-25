@@ -30,6 +30,9 @@ describe("TicketDetail Component (Requester View)", () => {
     };
     beforeEach(() => {
         vi.restoreAllMocks();
+        vi.spyOn(api, "fetchPublicComments").mockResolvedValue([]);
+        vi.spyOn(api, "fetchInternalNotes").mockResolvedValue([]);
+        vi.spyOn(api, "fetchRequesters").mockResolvedValue([]);
     });
     it("renders loading state initially while fetching ticket details", async () => {
         vi.spyOn(api, "fetchTicketById").mockReturnValue(new Promise(() => { }));
@@ -41,7 +44,7 @@ describe("TicketDetail Component (Requester View)", () => {
         vi.spyOn(api, "fetchTicketById").mockResolvedValue(mockTicket);
         render(_jsx(TicketDetail, { ticketId: 12, userId: 1, onBack: vi.fn() }));
         await waitFor(() => {
-            expect(screen.getByTestId("ticket-detail-view")).toBeInTheDocument();
+            expect(screen.getByTestId("ticket-code")).toBeInTheDocument();
         });
         expect(screen.getByTestId("ticket-code")).toHaveTextContent("TKT-2026-000012");
         expect(screen.getByTestId("ticket-summary")).toHaveTextContent("VPN Connection Error");
@@ -75,7 +78,7 @@ describe("TicketDetail Component (Requester View)", () => {
         vi.spyOn(api, "fetchTicketById").mockResolvedValue(mockTicket);
         render(_jsx(TicketDetail, { ticketId: 12, userId: 1, onBack: vi.fn() }));
         await waitFor(() => {
-            expect(screen.getByTestId("ticket-detail-view")).toBeInTheDocument();
+            expect(screen.getByTestId("ticket-code")).toBeInTheDocument();
         });
         // Ensure no form inputs, select dropdowns for status, or comment submit buttons exist
         expect(screen.queryByRole("select")).not.toBeInTheDocument();

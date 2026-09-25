@@ -1,0 +1,22 @@
+# Lab 3 — Peer Review Record
+
+**Author:** Yotsapoom Liupolvanish — 67070503493 — GitHub: [@JEWKEW](https://github.com/JEWKEW)
+**Peer reviewer:** Chaiyaphoom Chenchirotphiphat — 67070503410 — GitHub: [@maneejames](https://github.com/maneejames)
+
+## Pull Requests I Authored (Reviewed by My Partner)
+
+| PR | Branch | Title | Reviewer Verdict | Reviewer Comment | My Response |
+|---|---|---|---|---|---|
+| [#38](https://github.com/JEWKEW/TokTickIT/pull/38) | `feature/1-spec-and-test-plan-lab3` | docs: add lab 03 documentation for specifications, API design, UI, and tests | Approved | "I've reviewed the specification, API spec, UI spec, and test plan for Lab 3. The authorization matrix, business rules, and multi-role acceptance criteria are clear and well structured. Good work!" | "Thanks for the review and approval! Glad to hear the specifications and authorization matrix are clear." |
+| [#39](https://github.com/JEWKEW/TokTickIT/pull/39) | `feature/2-db-schema-and-seed-lab3` | feat: add database schema, migrations, and seed data for user roles and ticketing features | Approved | "Reviewed and approved. The database schema extensions for User roles, Ticket ownership, Public Comments, and Internal Notes are properly defined with migration files and idempotent seed data." | "Thanks for checking the schema and seed script. Appreciate the review and approval!" |
+| [#40](https://github.com/JEWKEW/TokTickIT/pull/40) | `feature/3-auth-foundation-lab3` | Authentication endpoints, password change, JWT, and auth API tests | Approved | "Approved. JWT authentication, login endpoint, mandatory first-login password change, and auth middleware are properly implemented with green API test coverage." | "Thank you for verifying the auth flow and test suite!" |
+| [#41](https://github.com/JEWKEW/TokTickIT/pull/41) | `feature/4-requester-regression-lab3` | implement core client components, API services, and test suites for requester selection and ticket workflows | Approved | "Approved. Requester workflows have been updated to use JWT authenticated identity, Dev Requester selector removed cleanly, and all Lab 2 requester functions pass without regression." | "Thanks for verifying the regression tests and requester context integration!" |
+| [#42](https://github.com/JEWKEW/TokTickIT/pull/42) | `feature/5-staff-queue-lab3` | StaffTicketQueue component, server app, API integration, and tests | Approved | "Approved. IT Staff Queue is working cleanly with keyword search, priority/status/owner filters, sorting, pagination, and Zen Green styling. All unit and API tests pass." | "Appreciate your thorough review of the queue filters and visual layout!" |
+| [#43](https://github.com/JEWKEW/TokTickIT/pull/43) | `feature/6-staff-ticket-detail-lab3` | implement server application, client ticket components, and test suites | Approved | "Approved. Staff Ticket Detail handles ticket claiming, status transitions, IT priority updates, public comments, and role-restricted internal notes with warm amber styling correctly." | "Thanks for checking the internal notes styling and role access permissions!" |
+| [#44](https://github.com/JEWKEW/TokTickIT/pull/44) | `feature/7-admin-user-management-lab3` | Add administrator user management tests, components, and database seed, login | Approved | "Approved. Administrator user management allows creating, editing, activating/deactivating users, and password resets. Self-deactivation and last-admin safety guardrails are verified." | "Thank you for testing the safety guardrails and user account management features!" |
+| [#45](https://github.com/JEWKEW/TokTickIT/pull/45) | `feature/8-e2e-and-audit-lab3` | feat(lab-03): implement E2E Playwright test suites, responsive visual screenshots, tests.md evidence, reviewer.md, and ai-use.md | Approved | "Checked the Playwright E2E tests and responsive screenshots across Desktop, Tablet, and Mobile. Everything looks great and passes clean. Ready to merge." | "Thanks for reviewing the E2E test runs, responsive screenshots, and documentation! Appreciate the approval!" |
+
+## Pull Requests I Reviewed for My Partner
+
+My comment: "LGTM! Verified authentication flows, server-side authorization matrix enforcement, IT Staff queue/detail operations, Administrator user management safety rules, and Vitest/Playwright test suites pass clean."  
+Partner's response: "Thank you! Merged feature branches into staging."
