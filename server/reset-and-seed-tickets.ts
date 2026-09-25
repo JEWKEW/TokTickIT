@@ -60,6 +60,34 @@ const ticketTemplates = [
   {
     summary: "Email attachment limit error",
     description: "Unable to send email with 4MB attachment even though limit is supposed to be 10MB.",
+  },
+  {
+    summary: "Projector in Room 402 no signal",
+    description: "HDMI connection does not project display on the classroom screen.",
+  },
+  {
+    summary: "Printer queue stuck in CS Lab B",
+    description: "Multiple print jobs queued up and document printing has halted.",
+  },
+  {
+    summary: "Request new monitor for workstation",
+    description: "Dual monitor setup required for software development tasks.",
+  },
+  {
+    summary: "Lab computer reboot loop",
+    description: "Desktop PC reboots spontaneously during Windows startup phase.",
+  },
+  {
+    summary: "Two-Factor Authentication device lost",
+    description: "Mobile phone lost and need backup code or device reset to log into university portal.",
+  },
+  {
+    summary: "Software request: MATLAB R2024a installation",
+    description: "Need latest version of MATLAB installed on lab workstation for research project.",
+  },
+  {
+    summary: "Shared drive network path unreachable",
+    description: "Error 0x80070035 network path not found when connecting to shared drive.",
   }
 ];
 
@@ -81,7 +109,8 @@ async function main() {
   console.log("\n2. Fetching database entities...");
   const categories = await prisma.category.findMany({ where: { isActive: true } });
   const relatedSystems = await prisma.relatedSystem.findMany({ where: { isActive: true } });
-  const requesters = await prisma.requesterUser.findMany({ where: { isActive: true } });
+  const requesters = await prisma.user.findMany({ where: { role: "REQUESTER", isActive: true } });
+  const itStaffs = await prisma.user.findMany({ where: { role: "IT_STAFF", isActive: true } });
 
   if (categories.length === 0 || relatedSystems.length === 0 || requesters.length === 0) {
     throw new Error("Missing categories, related systems, or requesters in DB. Please run prisma seed first.");
@@ -93,11 +122,11 @@ async function main() {
   const shuffledTemplates = [...ticketTemplates].sort(() => 0.5 - Math.random());
   const year = new Date().getFullYear();
 
-  console.log("\n3. Creating 10 new tickets with random category, priority, status, system, and requester...\n");
+  console.log("\n3. Creating 20 new tickets with random category, priority, status, system, and requester...\n");
 
   const createdTickets = [];
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 20; i++) {
     const template = shuffledTemplates[i % shuffledTemplates.length];
     const category = getRandomItem(categories);
     const system = getRandomItem(relatedSystems);
@@ -131,7 +160,7 @@ async function main() {
     );
   }
 
-  console.log("\nSuccessfully created 10 tickets!");
+  console.log("\nSuccessfully created 20 tickets!");
 }
 
 main()
