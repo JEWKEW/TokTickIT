@@ -1,46 +1,27 @@
-# TokTickIT Lab 3 — AI Use Documentation & Agent Reflection
+# Lab 3 — AI Use and Reflection
 
-## 1. Large Language Models (LLMs) Employed
+**LLM/agent used:** Gemini 3.6 Flash (Antigravity AI Assistant)
 
-| Task Phase | LLM Name & Model Version | Primary Use Case |
-| :--- | :--- | :--- |
-| **Specification & Test DD** | **Gemini 3.6 Flash** | Drafting `specification.md`, `api-spec.md`, `ui-spec.md`, authorization matrix, business rules, and Acceptance Criteria. |
-| **Implementation & TDD** | **Gemini 3.6 Flash** | Generating Express REST API endpoints, Prisma migrations, React components, Vitest integration tests, and Playwright E2E spec files. |
+## Selected Key Prompts (Lab 03 Features)
 
----
+| # | Prompt (Summarised) | What I Did with the Result |
+|---|---|---|
+| 1 | Verified specification documents (specification.md, tests.md, ui-spec.md, api-spec.md), business rules BR-01 to BR-05, authorization matrix, and Acceptance Criteria AC-01 to AC-12. | Working on ISSUE-01 on branch feature/1-spec-and-test-plan-lab3: Drafted specification.md, api-spec.md, ui-spec.md, and tests.md in docs/lab-03/. Defined user roles (Requester, IT Staff, Administrator), mandatory password change on first login, server-side authorization matrix, ticket queue workflows, public comments vs internal notes, admin user management, and responsive audit criteria. |
+| 2 | Generated Prisma database schema evolution, migrations, and idempotent seed script with 3 user roles, tickets with ownership, public comments, and internal notes. | Working on ISSUE-02 on branch feature/2-db-schema-and-seed-lab3: Created database migrations for User (role: REQUESTER, IT_STAFF, ADMINISTRATOR), Ticket (ownerId, itPriority), Comment (public), and InternalNote models. Wrote idempotent seed script providing initial active/inactive accounts for all 3 roles, tickets with assignment, comments, and internal notes. |
+| 3 | Implemented real authentication endpoints (POST /api/auth/login, POST /api/auth/change-password, GET /api/auth/me, POST /api/auth/logout), Express middleware, and login React components. | Working on ISSUE-03 on branch feature/3-auth-foundation-lab3: Built auth routes, requireAuth middleware, JWT session handling, Login component, and ChangePassword component. Enforced mandatory first-login password change (mustChangePassword = true), error handling, and unit/API test coverage. |
+| 4 | Refactored Requester workflow components to use authenticated user context, removed Dev Requester selector, and added "appears resolved" requester action. | Working on ISSUE-04 on branch feature/4-requester-regression-lab3: Updated CreateTicketForm, MyTicketsList, and RequesterTicketDetail to derive identity from JWT auth headers. Implemented requester "Appears Resolved" button action, public commenting, and verified zero regression across all Lab 2 requester features. |
+| 5 | Implemented IT Staff Ticket Queue (GET /api/tickets/queue) with search, multi-filter, column sorting, pagination, and Zen Green Staff Queue UI component. | Working on ISSUE-05 on branch feature/5-staff-queue-lab3: Built StaffTicketQueue component and backend queue API endpoint supporting text search (q), status, priority, owner filter, and pagination. Added loading, empty, and filtered UI states with Zen Green styling. Added unit and API tests. |
+| 6 | Implemented IT Staff Ticket Detail, ticket claiming/reassignment, IT priority update, status state machine transitions, public comments, and role-restricted internal notes. | Working on ISSUE-06 on branch feature/6-staff-ticket-detail-lab3: Built StaffTicketDetail component and backend endpoints for updating ownerId, itPriority, and status. Implemented Public Comments and Internal Notes tabs with warm amber visual styling (--zg-internal-note-bg) strictly restricted to staff/admin. Added security and UI tests. |
+| 7 | Implemented Administrator User Management API (GET/POST/PATCH /api/admin/users) and UI (UserManagement component) with safety constraints. | Working on ISSUE-07 on branch feature/7-admin-user-management-lab3: Built UserManagement component and REST endpoints for creating/editing users, role assignment, account activation/deactivation, and password resets. Enforced backend safety rules blocking self-deactivation and preventing removal of the last active Administrator. |
+| 8 | Created Playwright E2E test suites (authentication, staff-ticket-flow, user-administration) and captured responsive screenshots across 3 viewports. | Working on ISSUE-08 on branch feature/8-e2e-and-audit-lab3: Created Playwright E2E spec files under e2e/lab-03/ covering AC-01 to AC-12. Generated 36 responsive screenshots across Desktop (1280px), Tablet (768px), and Mobile (375px) in artifacts/lab-03/screenshots/. Populated tests.md visual audit checklist. |
+| 9 | Validated clean test suites, populated reviewer.md and ai-use.md deliverables matching Lab 2 templates, and prepared release PR to lab3-staging. | Working on ISSUE-09 on branch feature/8-e2e-and-audit-lab3: Verified all backend Vitest, frontend Vitest, and Playwright E2E test suites pass cleanly. Updated docs/lab-03/reviewer.md with GitHub PR review logs and docs/lab-03/ai-use.md with prompt logs and agent reflection. |
 
-## 2. Selected Key Prompts (8 Key Prompts)
+## Reflection
 
-### Prompt 1: Authentication & Password Change Specification
-> *"Draft functional requirements and business rules for real email/password authentication replacing the Lab 2 requester selector. Include mandatory first-login password change rules (`mustChangePassword = true`), password complexity validation, and JWT session handling."*
+Using an AI pair programmer throughout Lab 03 accelerated contract design, multi-role authorization modeling, and full-stack workflow implementation. Providing explicit file paths, precise business rules (BR-01 to BR-05), and pre-defined test matrices allowed the AI assistant to produce type-safe, production-ready code with minimal iteration.
 
-### Prompt 2: Database Schema & Migration Strategy
-> *"Design the Prisma database schema evolution for unified User models (with roles REQUESTER, IT_STAFF, ADMINISTRATOR), Ticket ownership (`ownerId`), IT Priority, append-only PublicComment, and InternalNote models while preserving all Lab 2 ticket/attachment data."*
-
-### Prompt 3: Authorization Matrix & Middleware Enforcement
-> *"Construct a strict backend Authorization Matrix mapping every REST API endpoint to permitted roles. Ensure server-side enforcement using Express middleware (`requireAuth`, `requireRole`, `requireOwnerOrStaff`) and return safe 401/403 HTTP error responses."*
-
-### Prompt 4: IT Staff Ticket Queue & Query Standards
-> *"Implement `GET /api/tickets/queue` supporting keyword search (`q`), status filters, priority filters, owner filters, category filters, column sorting, and pagination metadata. Ensure default ordering by `createdAt` descending."*
-
-### Prompt 5: Public Comments vs. Internal Notes Differentiation
-> *"Create API endpoints and React UI tabs for Public Comments and Internal Notes. Ensure Internal Notes are strictly forbidden for Requesters (HTTP 403) and styled with a distinct warm-amber visual theme (`--zg-internal-note-bg`)."*
-
-### Prompt 6: Administrator User Management & Safety Constraints
-> *"Implement Administrator User Management API and UI components (`UserManagement.tsx`) supporting user listing, search, role filtering, creation, editing, and password reset. Enforce safety rules preventing self-deactivation and preventing removal of the last active Administrator."*
-
-### Prompt 7: Playwright End-to-End Suite & AC Traceability
-> *"Write three Playwright E2E spec files under `e2e/lab-03/` (`authentication.spec.ts`, `staff-ticket-flow.spec.ts`, `user-administration.spec.ts`) covering all 12 Acceptance Criteria with traceable comment headers."*
-
-### Prompt 8: Responsive Screenshot Automation & Audit Checklist
-> *"Automate responsive screenshot capturing across Desktop (1280px), Tablet (768px), and Mobile (375px) for all required Lab 3 screens in `artifacts/lab-03/screenshots/` and produce a completed Visual Audit Checklist."*
-
----
-
-## 3. My Reflection
-
-### (a) Reflection on Using the AI Specification Agent
-Using the AI specification agent during Sprint 3 was essential for establishing clear boundaries before writing code. Drafting `specification.md`, `api-spec.md`, and `ui-spec.md` with Gemini 3.6 Flash ensured that complex business rules—such as the permitted status transition matrix, requester resolution indication vs. formal IT staff resolution, and administrator safety rules—were explicitly documented upfront. The AI helped structure a complete Authorization Matrix mapping every endpoint to permitted roles, which prevented authorization oversights during backend implementation. Having a rigorous specification reduced ambiguity and provided a clear roadmap for Acceptance Criteria (AC-01 to AC-12) and TDD test design.
-
-### (b) Reflection on Using the AI Coding Agent
-Working with the AI coding agent accelerated development while maintaining architectural discipline. The AI agent generated backend Express routes, Prisma queries, React components, and Playwright E2E tests efficiently. The main learning outcome was the importance of rigorous human-in-the-loop verification: while the AI agent wrote clean, modular TypeScript code, I had to ensure that database migrations preserved existing Lab 2 ticket/attachment data, backend middleware strictly enforced server-side authorization rather than relying on UI hidden buttons, and Playwright tests cleanly captured responsive evidence across all three viewports. Overall, combining specification-driven prompt engineering with automated test verification resulted in a robust, zero-regression software increment.
+Key takeaways and adjustments made during development:
+1. **Multi-Role Authentication & Security**: Transitioning from Lab 2's Dev Requester selector to real JWT-based authentication required strict server-side middleware (`requireAuth`, `requireRole`, `requireOwnerOrStaff`). Enforcing authorization on the backend prevented unauthorized access regardless of client UI state.
+2. **Role-Restricted Internal Notes**: Visual and logical separation between Public Comments and Internal Notes ensured staff-only private notes (`--zg-internal-note-bg: #fff9e6`) remained strictly forbidden for Requesters (HTTP 403 Forbidden).
+3. **Administrator Safety Rules**: Guarding against self-deactivation and protecting the last remaining active Administrator in the system prevented permanent admin lockout scenarios during user account administration.
+4. **End-to-End Responsive Validation**: Automating Playwright test runs across Desktop (1280px), Tablet (768px), and Mobile (375px) viewports verified clean rendering, badge color coding, and accessible navigation across all core Lab 3 workflows.

@@ -1,68 +1,22 @@
-# TokTickIT Lab 3 — Peer Code Review Log & Audit Record
+# Lab 3 — Peer Review Record
 
-This document records the peer code reviews, comments, resolutions, and approval history for all feature branches merged into `lab3-staging` and `main`.
+**Author:** Yotsapoom Liupolvanish — 67070503493 — GitHub: [@JEWKEW](https://github.com/JEWKEW)
+**Peer reviewer:** Chaiyaphoom Chenchirotphiphat — 67070503410 — GitHub: [@maneejames](https://github.com/maneejames)
 
----
+## Pull Requests I Authored (Reviewed by My Partner)
 
-## PR #1: Feature / Auth & Password Management (`feature/1-auth-foundation`)
-- **PR Link:** [PR #1: Authentication Foundation & Password Change](https://github.com/TokTickIT/TokTickIT/pull/1)
-- **Author:** Lead Developer (@dev-lead)
-- **Reviewer Identity:** Rachawipa Katippatee (@peer-reviewer-1)
-- **Review Status:** APPROVED
-- **Timestamp:** 2026-09-24T14:30:00Z
+| PR | Branch | Title | Reviewer Verdict | Reviewer Comment | My Response |
+|---|---|---|---|---|---|
+| [#38](https://github.com/JEWKEW/TokTickIT/pull/38) | `feature/1-spec-and-test-plan-lab3` | docs: add lab 03 documentation for specifications, API design, UI, and tests | Approved | "I've reviewed the specification, API spec, UI spec, and test plan for Lab 3. The authorization matrix, business rules, and multi-role acceptance criteria are clear and well structured. Good work!" | "Thanks for the review and approval! Glad to hear the specifications and authorization matrix are clear." |
+| [#39](https://github.com/JEWKEW/TokTickIT/pull/39) | `feature/2-db-schema-and-seed-lab3` | feat: add database schema, migrations, and seed data for user roles and ticketing features | Approved | "Reviewed and approved. The database schema extensions for User roles, Ticket ownership, Public Comments, and Internal Notes are properly defined with migration files and idempotent seed data." | "Thanks for checking the schema and seed script. Appreciate the review and approval!" |
+| [#40](https://github.com/JEWKEW/TokTickIT/pull/40) | `feature/3-auth-foundation-lab3` | Authentication endpoints, password change, JWT, and auth API tests | Approved | "Approved. JWT authentication, login endpoint, mandatory first-login password change, and auth middleware are properly implemented with green API test coverage." | "Thank you for verifying the auth flow and test suite!" |
+| [#41](https://github.com/JEWKEW/TokTickIT/pull/41) | `feature/4-requester-regression-lab3` | implement core client components, API services, and test suites for requester selection and ticket workflows | Approved | "Approved. Requester workflows have been updated to use JWT authenticated identity, Dev Requester selector removed cleanly, and all Lab 2 requester functions pass without regression." | "Thanks for verifying the regression tests and requester context integration!" |
+| [#42](https://github.com/JEWKEW/TokTickIT/pull/42) | `feature/5-staff-queue-lab3` | StaffTicketQueue component, server app, API integration, and tests | Approved | "Approved. IT Staff Queue is working cleanly with keyword search, priority/status/owner filters, sorting, pagination, and Zen Green styling. All unit and API tests pass." | "Appreciate your thorough review of the queue filters and visual layout!" |
+| [#43](https://github.com/JEWKEW/TokTickIT/pull/43) | `feature/6-staff-ticket-detail-lab3` | implement server application, client ticket components, and test suites | Approved | "Approved. Staff Ticket Detail handles ticket claiming, status transitions, IT priority updates, public comments, and role-restricted internal notes with warm amber styling correctly." | "Thanks for checking the internal notes styling and role access permissions!" |
+| [#44](https://github.com/JEWKEW/TokTickIT/pull/44) | `feature/7-admin-user-management-lab3` | Add administrator user management tests, components, and database seed, login | Approved | "Approved. Administrator user management allows creating, editing, activating/deactivating users, and password resets. Self-deactivation and last-admin safety guardrails are verified." | "Thank you for testing the safety guardrails and user account management features!" |
+| [#45](https://github.com/JEWKEW/TokTickIT/pull/45) | `feature/8-e2e-and-audit-lab3` | feat(lab-03): implement E2E Playwright test suites, responsive visual screenshots, tests.md evidence, reviewer.md, and ai-use.md | Approved | "Checked the Playwright E2E tests and responsive screenshots across Desktop, Tablet, and Mobile. Everything looks great and passes clean. Ready to merge." | "Thanks for reviewing the E2E test runs, responsive screenshots, and documentation! Appreciate the approval!" |
 
-### Review Comments & Responses:
-1. **Comment (Rachawipa Katippatee):**
-   > "Ensure that inactive accounts (`isActive === false`) receive a generic 401 Unauthorized response without leaking whether the account exists in the database."
-   - **Resolution:** Updated `POST /api/auth/login` in `server/src/routes/auth.ts` to return generic error message: `"Invalid email or password. Please try again."` for both invalid passwords and inactive accounts.
-2. **Comment (Rachawipa Katippatee):**
-   > "When `mustChangePassword` is true, verify that middleware blocks access to operational endpoints."
-   - **Resolution:** Verified `requireAuth` middleware returns `403 Password Change Required` for all non-password change endpoints until updated.
+## Pull Requests I Reviewed for My Partner
 
----
-
-## PR #2: Feature / IT Staff Queue & Workflow (`feature/2-staff-queue`)
-- **PR Link:** [PR #2: IT Staff Ticket Queue & Detail Operations](https://github.com/TokTickIT/TokTickIT/pull/2)
-- **Author:** Fullstack Developer (@dev-staff)
-- **Reviewer Identity:** Kantapat Suwannahong (@peer-reviewer-2)
-- **Review Status:** APPROVED
-- **Timestamp:** 2026-09-24T16:45:00Z
-
-### Review Comments & Responses:
-1. **Comment (Kantapat Suwannahong):**
-   > "The IT Staff Queue should support filtering by both owner (`unassigned` vs specific owner ID) and IT priority simultaneously."
-   - **Resolution:** Enhanced `fetchTicketQueue` service and Prisma query in `server/src/routes/tickets.ts` to support combined query parameters (`ownerId`, `itPriority`, `status`, `q`, `page`, `limit`).
-2. **Comment (Kantapat Suwannahong):**
-   > "Internal Notes must be visually distinct from Public Comments in the UI so staff do not confuse public messages with internal notes."
-   - **Resolution:** Styled Internal Notes tab with Zen Green soft warm amber background (`--zg-internal-note-bg`: `#FFF9E6`) and prominent lock icon header `🔒 Private Internal Note — Visible to IT Staff Only`.
-
----
-
-## PR #3: Feature / User Administration (`feature/3-user-admin`)
-- **PR Link:** [PR #3: Administrator User Management & Safety Rules](https://github.com/TokTickIT/TokTickIT/pull/3)
-- **Author:** Admin Component Developer (@dev-admin)
-- **Reviewer Identity:** Rattanachote Petpansri (@peer-reviewer-3)
-- **Review Status:** APPROVED
-- **Timestamp:** 2026-09-24T19:15:00Z
-
-### Review Comments & Responses:
-1. **Comment (Rattanachote Petpansri):**
-   > "Verify that an Administrator cannot deactivate their own account or remove the last active Administrator."
-   - **Resolution:** Added strict backend validation checks in `server/src/routes/admin.ts` returning `400 Bad Request` if an Admin attempts self-deactivation or if deactivating a user leaves 0 active `ADMINISTRATOR` accounts.
-2. **Comment (Rattanachote Petpansri):**
-   > "Setting a new initial password should automatically set `mustChangePassword = true` for that user."
-   - **Resolution:** Verified `POST /api/admin/users/:id/reset-password` updates `passwordHash` and sets `mustChangePassword = true` in PostgreSQL database.
-
----
-
-## PR #4: Feature / End-to-End Testing & Visual Audit (`feature/8-e2e-and-audit-lab3`)
-- **PR Link:** [PR #4: E2E Test Suite, Screenshots & Release Integration](https://github.com/TokTickIT/TokTickIT/pull/4)
-- **Author:** E2E Automation Engineer (@dev-qa)
-- **Reviewer Identity:** Assoc. Prof. Suthep Madarasmi (@course-instructor)
-- **Review Status:** APPROVED
-- **Timestamp:** 2026-09-25T16:00:00Z
-
-### Review Comments & Responses:
-1. **Comment (Assoc. Prof. Suthep Madarasmi):**
-   > "Ensure all E2E spec files trace back to Acceptance Criteria defined in docs/lab-03/tests.md."
-   - **Resolution:** Added comment headers listing covered AC IDs (AC-01 through AC-12) across `e2e/lab-03/authentication.spec.ts`, `e2e/lab-03/staff-ticket-flow.spec.ts`, and `e2e/lab-03/user-administration.spec.ts`.
+My comment: "LGTM! Verified authentication flows, server-side authorization matrix enforcement, IT Staff queue/detail operations, Administrator user management safety rules, and Vitest/Playwright test suites pass clean."  
+Partner's response: "Thank you! Merged feature branches into staging."
