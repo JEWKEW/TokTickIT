@@ -47,8 +47,10 @@ This is the planned verification for the Lab 4 contract in `specification.md`, `
 | STYLE-01 | UI Style / Accessibility | FR-13, AC-10 | Focus visibility, semantic names, non-color status cues, and shared Zen Green tokens | Controls are keyboard reachable and labeled; color is not the only status cue; tokens match `client/src/index.css` | `client/tests/lab-04/StaffDashboard.test.tsx` | Pending |
 | RESP-01 | Responsive | FR-13, AC-10 | Staff and Requester dashboards at desktop/tablet/mobile sizes | No clipped/overlapping cards or page-level horizontal overflow | `client/tests/lab-04/StaffDashboard.test.tsx`; `client/tests/lab-04/RequesterDashboard.test.tsx` | Pending |
 | RESP-02 | Responsive / Accessibility | FR-13, AC-10 | Actions Taken and workflow controls at desktop/tablet/mobile sizes | Fields and actions reflow, keyboard focus remains visible, and no horizontal page overflow occurs | `client/tests/lab-04/ActionsTaken.test.tsx`; `client/tests/lab-04/TicketWorkflow.test.tsx` | Pending |
-| MIG-01 | Migration / Regression | BR-13, AC-09 | Apply migration to a Lab 3 database containing Users, Tickets, Attachments, Comments, and Notes | Existing rows and relations remain intact; legacy Tickets have zero Actions Taken and remain viewable | `server/tests/lab-04/actions-taken.api.test.ts` | Pending |
-| MIG-02 | Migration / Seed | BR-14 | Run seed twice and compare fixture keys/counts | Second run succeeds without duplicate fixtures; zero/one/multiple-action cases remain available | `server/tests/lab-04/actions-taken.api.test.ts` | Pending |
+| MIG-01 | Migration / Regression | BR-13, AC-09 | Apply migration to an isolated Lab 3 schema containing Users, Tickets, Attachments, Comments, and Notes | Existing rows and relations remain intact; legacy Tickets start with zero Actions Taken and remain viewable | `server/tests/lab-04/database-migration.test.ts` | Pending |
+| MIG-02 | Migration / Recovery | BR-13 | Re-run `prisma migrate deploy` after successful Lab 4 migration | Deployment is a safe no-op and existing Lab 3 rows and Action Taken rows remain intact; recovery remains forward-only | `server/tests/lab-04/database-migration.test.ts` | Pending |
+| MIG-03 | Migration / Relationship | BR-01, AC-01 | Create Actions Taken under a Ticket and read its parent and performer relations | Every row has exactly one valid Ticket and one valid User performer; one Ticket can have multiple actions | `server/tests/lab-04/database-migration.test.ts` | Pending |
+| MIG-04 | Migration / Seed | BR-14 | Run the Lab 4 seed twice and compare seeded Action Taken counts | Second run succeeds without duplicates; zero/one/multiple-action Ticket cases remain available | `server/tests/lab-04/database-migration.test.ts` | Pending |
 | PERF-01 | Performance-Smoke | FR-09–FR-11 | Request both dashboard endpoints over 500 Tickets and up to 2,000 Actions Taken | After one warm-up, each of five requests per endpoint completes within 1,000 ms; record durations and environment | `server/tests/lab-04/requester-dashboard.api.test.ts`; `server/tests/lab-04/staff-dashboard.api.test.ts` | Pending |
 | REG-01 | Migration / Regression | FR-13, AC-17 | Existing authentication, password change, health/category, requester workflow, attachments, comments/notes, queue/detail, and Admin APIs/UI | Existing Labs 1–3 suites continue passing with role and ownership rules intact | `server/tests/lab-01/health.test.ts`; `server/tests/lab-01/categories.test.ts`; `server/tests/lab-02/tickets.test.ts`; `server/tests/lab-02/ticket-detail.test.ts`; `server/tests/lab-02/requesters.test.ts`; `server/tests/lab-02/my-tickets.test.ts`; `server/tests/lab-02/attachments.test.ts`; `server/tests/lab-03/auth.api.test.ts`; `server/tests/lab-03/requester-workflow.api.test.ts`; `server/tests/lab-03/comments-notes.api.test.ts`; `server/tests/lab-03/staff-queue.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts`; `server/tests/lab-03/users-admin.api.test.ts`; `client/tests/lab-01/App.test.tsx`; `client/tests/lab-02/CreateTicketForm.test.tsx`; `client/tests/lab-02/MyTicketsList.test.tsx`; `client/tests/lab-02/TicketDetail.test.tsx`; `client/tests/lab-02/AttachmentLifecycle.test.tsx`; `client/tests/lab-03/Login.test.tsx`; `client/tests/lab-03/ChangePassword.test.tsx`; `client/tests/lab-03/RequesterWorkflow.test.tsx`; `client/tests/lab-03/StaffTicketDetail.test.tsx`; `client/tests/lab-03/StaffTicketQueue.test.tsx`; `client/tests/lab-03/UserManagement.test.tsx`; `e2e/lab-03/authentication.spec.ts`; `e2e/lab-03/staff-ticket-flow.spec.ts`; `e2e/lab-03/user-administration.spec.ts` | Pending |
 | RESP-03 | Responsive / End-to-End | AC-10 | Open the staff/requester dashboards, Actions Taken, and workflow screens at 1280px, 768px, and 375px | No page-level horizontal overflow, clipped labels, or overlapping controls at any target width | `e2e/lab-04/dashboards.spec.ts`; `e2e/lab-04/actions-taken-flow.spec.ts`; `e2e/lab-04/ticket-resolution.spec.ts` | Pending |
@@ -60,7 +62,7 @@ This is the planned verification for the Lab 4 contract in `specification.md`, `
 
 | Acceptance Criterion | Planned Test IDs | Test File Path(s) |
 |---|---|---|
-| AC-01 | API-01, E2E-01 | `server/tests/lab-04/actions-taken.api.test.ts`; `e2e/lab-04/actions-taken-flow.spec.ts` |
+| AC-01 | API-01, MIG-03, E2E-01 | `server/tests/lab-04/actions-taken.api.test.ts`; `server/tests/lab-04/database-migration.test.ts`; `e2e/lab-04/actions-taken-flow.spec.ts` |
 | AC-02 | API-10, UI-02, E2E-03 | `server/tests/lab-04/requester-dashboard.api.test.ts`; `client/tests/lab-04/RequesterDashboard.test.tsx`; `e2e/lab-04/dashboards.spec.ts` |
 | AC-03 | UNIT-01, API-02, UI-03, E2E-01 | `server/tests/lab-04/actions-taken.api.test.ts`; `client/tests/lab-04/ActionsTaken.test.tsx`; `e2e/lab-04/actions-taken-flow.spec.ts` |
 | AC-04 | AUTH-01, AUTH-02, E2E-02 | `server/tests/lab-04/actions-taken.api.test.ts`; `server/tests/lab-04/ticket-workflow.api.test.ts`; `e2e/lab-04/ticket-resolution.spec.ts` |
@@ -68,7 +70,7 @@ This is the planned verification for the Lab 4 contract in `specification.md`, `
 | AC-06 | API-08, UI-06, E2E-02 | `server/tests/lab-04/ticket-workflow.api.test.ts`; `client/tests/lab-04/TicketWorkflow.test.tsx`; `e2e/lab-04/ticket-resolution.spec.ts` |
 | AC-07 | API-13, UI-01 | `server/tests/lab-04/staff-dashboard.api.test.ts`; `client/tests/lab-04/StaffDashboard.test.tsx` |
 | AC-08 | API-05, API-09, UI-05, E2E-01 | `server/tests/lab-04/actions-taken.api.test.ts`; `server/tests/lab-04/ticket-workflow.api.test.ts`; `client/tests/lab-04/ActionsTaken.test.tsx`; `e2e/lab-04/actions-taken-flow.spec.ts` |
-| AC-09 | MIG-01, MIG-02 | `server/tests/lab-04/actions-taken.api.test.ts` |
+| AC-09 | MIG-01, MIG-02 | `server/tests/lab-04/database-migration.test.ts` |
 | AC-10 | RESP-01, RESP-02, RESP-03, STYLE-01 | `client/tests/lab-04/StaffDashboard.test.tsx`; `client/tests/lab-04/RequesterDashboard.test.tsx`; `client/tests/lab-04/ActionsTaken.test.tsx`; `client/tests/lab-04/TicketWorkflow.test.tsx`; `e2e/lab-04/dashboards.spec.ts`; `e2e/lab-04/actions-taken-flow.spec.ts`; `e2e/lab-04/ticket-resolution.spec.ts` |
 | AC-11 | API-01, UI-03, E2E-01 | `server/tests/lab-04/actions-taken.api.test.ts`; `client/tests/lab-04/ActionsTaken.test.tsx`; `e2e/lab-04/actions-taken-flow.spec.ts` |
 | AC-12 | API-06 | `server/tests/lab-04/ticket-workflow.api.test.ts` |
@@ -88,7 +90,8 @@ server/tests/lab-04/
 ├── actions-taken.api.test.ts
 ├── ticket-workflow.api.test.ts
 ├── requester-dashboard.api.test.ts
-└── staff-dashboard.api.test.ts
+├── staff-dashboard.api.test.ts
+└── database-migration.test.ts (Issue 3 migration, recovery, and relationship coverage)
 client/tests/lab-04/
 ├── StaffDashboard.test.tsx
 ├── RequesterDashboard.test.tsx

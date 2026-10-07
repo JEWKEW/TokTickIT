@@ -114,9 +114,9 @@ Evolve the **TokTickIT** IT Service Desk platform by introducing structured **Ac
 model ActionTaken {
   id                Int      @id @default(autoincrement())
   ticketId          Int
-  ticket            Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket            Ticket   @relation(fields: [ticketId], references: [id], onDelete: Restrict)
   performedById     Int
-  performedBy       User     @relation(fields: [performedById], references: [id])
+  performedBy       User     @relation(fields: [performedById], references: [id], onDelete: Restrict)
   actionDateTime    DateTime
   actionDescription String   @db.Text
   result            String   @db.Text
