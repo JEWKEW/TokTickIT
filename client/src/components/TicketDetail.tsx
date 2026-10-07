@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import ActionsTakenPanel from "./ActionsTakenPanel.js";
 import {
   fetchTicketById,
   Ticket,
@@ -71,7 +72,7 @@ export default function TicketDetail({
   const [opError, setOpError] = useState<string | null>(null);
 
   // Bottom Tabs State (Image 1 & 5)
-  const [activeTab, setActiveTab] = useState<"comments" | "notes" | "attachments" | "services" | "events">("comments");
+  const [activeTab, setActiveTab] = useState<"comments" | "notes" | "attachments" | "actions" | "events">("comments");
 
   const isStaffOrAdmin = userRole === "IT_STAFF" || userRole === "ADMINISTRATOR";
 
@@ -724,12 +725,11 @@ export default function TicketDetail({
 
               <button
                 type="button"
-                className={`custom-tab-btn ${activeTab === "services" ? "active" : ""}`}
-                onClick={() => setActiveTab("services")}
+                className={`custom-tab-btn ${activeTab === "actions" ? "active" : ""}`}
+                onClick={() => setActiveTab("actions")}
               >
-                <span>🔧</span>
-                <span>Service Actions</span>
-                <span className="custom-tab-badge">1</span>
+                <span aria-hidden="true">✓</span>
+                <span>Actions Taken</span>
               </button>
 
               {!isStaffOrAdmin && (
@@ -993,10 +993,8 @@ export default function TicketDetail({
               </div>
             </div>
 
-            {/* Tab 4: Service Actions */}
-            <div className={`p-4 ${activeTab === "services" ? "d-block" : "d-none"}`}>
-              <div className="text-muted small">1 service action logged for this ticket.</div>
-            </div>
+            {/* Actions Taken: staff create/edit; Requesters read only */}
+            {activeTab === "actions" && <div className="p-4"><ActionsTakenPanel ticketId={ticketId} userId={userId} userRole={userRole} /></div>}
 
             {/* Tab 5: Event Log */}
             {!isStaffOrAdmin && (

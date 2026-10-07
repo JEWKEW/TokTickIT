@@ -1,4 +1,38 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export async function fetchActionsTaken(ticketId, userId) {
+    const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new Error(data?.error?.message || "Failed to retrieve Actions Taken");
+    return data.data;
+}
+export async function createActionTaken(ticketId, input, userId) {
+    const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+        method: "POST",
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new Error(data?.error?.message || "Failed to create Action Taken");
+    return data.data;
+}
+export async function updateActionTaken(ticketId, actionId, input, expectedUpdatedAt, userId) {
+    const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken/${actionId}`, {
+        method: "PATCH",
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+        body: JSON.stringify({ ...input, expectedUpdatedAt }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        const error = new Error(data?.error?.message || "Failed to update Action Taken");
+        error.code = data?.error?.code;
+        throw error;
+    }
+    return data.data;
+}
 export async function checkSystem() {
     try {
         const healthRes = await fetch(`${API_URL}/api/health`);
