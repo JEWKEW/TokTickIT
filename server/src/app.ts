@@ -83,6 +83,122 @@ app.get("/api/health", (_req: Request, res: Response) => {
 });
 
 // ---------------------------------------------------------------------------
+// Lab 4: Actions Taken
+// ---------------------------------------------------------------------------
+const actionTakenInclude = {
+  performedBy: { select: { id: true, name: true, email: true, role: true } },
+};
+
+function actionTakenError(res: Response, status: number, code: string, message: string) {
+  return res.status(status).json({ success: false, error: { code, message } });
+}
+
+function validateActionFields(body: any, partial = false): string | null {
+  const fields = ["actionDescription", "actionDateTime", "result", "followUpRequired"];
+  if (!partial && fields.some((field) => body[field] === undefined)) return "Action description, date/time, result, and follow-up choice are required.";
+  if (partial && ![...fields, "followUpNote", "attachmentNotes"].some((field) => body[field] !== undefined)) return "At least one editable field is required.";
+  for (const [field, max] of [["actionDescription", 2000], ["result", 1000], ["followUpNote", 1000], ["attachmentNotes", 500]] as const) {
+    const value = body[field];
+    if (value === undefined || (field === "followUpNote" && value === null) || (field === "attachmentNotes" && value === null)) continue;
+    if (typeof value !== "string" || value.length > max || (["actionDescription", "result"].includes(field) && value.trim().length === 0)) {
+      return `${field} must be a non-empty string of at most ${max} characters.`;
+    }
+  }
+  if (body.followUpRequired !== undefined && typeof body.followUpRequired !== "boolean") return "followUpRequired must be a boolean.";
+  if (body.followUpRequired === true && (typeof body.followUpNote !== "string" || body.followUpNote.trim().length === 0)) {
+    return "Follow-up note is required when follow-up is requested.";
+  }
+  if (body.actionDateTime !== undefined) {
+    if (typeof body.actionDateTime !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(body.actionDateTime)) return "actionDateTime must be a valid ISO-8601 timestamp.";
+    const date = new Date(body.actionDateTime);
+    if (!Number.isFinite(date.getTime())) return "actionDateTime must be a valid ISO-8601 timestamp.";
+    if (date.getTime() > Date.now()) return "actionDateTime cannot be in the future.";
+  }
+  return null;
+}
+
+function editableActionData(body: any) {
+  const data: Record<string, unknown> = {};
+  for (const key of ["actionDescription", "result", "followUpRequired", "followUpNote", "attachmentNotes"] as const) {
+    if (body[key] !== undefined) data[key] = body[key];
+  }
+  if (body.actionDateTime !== undefined) data.actionDateTime = new Date(body.actionDateTime);
+  if (body.followUpRequired === false && body.followUpNote === undefined) data.followUpNote = null;
+  return data;
+}
+
+app.post("/api/tickets/:id/actions-taken", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  if (!req.user) return actionTakenError(res, 401, "UNAUTHORIZED", "Authentication required");
+  if (!["IT_STAFF", "ADMINISTRATOR"].includes(req.user.role)) return actionTakenError(res, 403, "FORBIDDEN", "Only IT Staff and Administrators can record Actions Taken.");
+  const ticketId = Number(req.params.id);
+  if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return actionTakenError(res, 400, "VALIDATION_ERROR", "Invalid ticket ID.");
+  const invalid = validateActionFields(req.body || {});
+  if (invalid) return actionTakenError(res, 400, "VALIDATION_ERROR", invalid);
+  try {
+    const prisma = getPrisma();
+    const existingTicket = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { id: true } });
+    if (!existingTicket) return actionTakenError(res, 404, "NOT_FOUND", "Ticket not found.");
+    const created = await (prisma as any).actionTaken.create({
+      data: { ticketId, performedById: req.user.id, ...editableActionData(req.body) },
+      include: actionTakenInclude,
+    });
+    return res.status(201).json({ success: true, data: created });
+  } catch {
+    return actionTakenError(res, 500, "INTERNAL_ERROR", "Failed to create Action Taken.");
+  }
+});
+
+app.get("/api/tickets/:id/actions-taken", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  if (!req.user) return actionTakenError(res, 401, "UNAUTHORIZED", "Authentication required");
+  const ticketId = Number(req.params.id);
+  if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return actionTakenError(res, 400, "VALIDATION_ERROR", "Invalid ticket ID.");
+  try {
+    const prisma = getPrisma();
+    const existingTicket = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { id: true, requesterId: true } });
+    if (!existingTicket) return actionTakenError(res, 404, "NOT_FOUND", "Ticket not found.");
+    if (req.user.role === "REQUESTER" && existingTicket.requesterId !== req.user.id) return actionTakenError(res, 403, "FORBIDDEN", "You do not have permission to view this ticket.");
+    if (!["REQUESTER", "IT_STAFF", "ADMINISTRATOR"].includes(req.user.role)) return actionTakenError(res, 403, "FORBIDDEN", "You do not have permission to view Actions Taken.");
+    const actions = await (prisma as any).actionTaken.findMany({
+      where: { ticketId }, include: actionTakenInclude, orderBy: [{ actionDateTime: "asc" }, { id: "asc" }],
+    });
+    return res.status(200).json({ success: true, data: actions });
+  } catch {
+    return actionTakenError(res, 500, "INTERNAL_ERROR", "Failed to retrieve Actions Taken.");
+  }
+});
+
+app.patch("/api/tickets/:id/actions-taken/:actionId", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  if (!req.user) return actionTakenError(res, 401, "UNAUTHORIZED", "Authentication required");
+  if (!["IT_STAFF", "ADMINISTRATOR"].includes(req.user.role)) return actionTakenError(res, 403, "FORBIDDEN", "Only IT Staff and Administrators can edit Actions Taken.");
+  const ticketId = Number(req.params.id);
+  const actionId = Number(req.params.actionId);
+  if (!Number.isSafeInteger(ticketId) || ticketId <= 0 || !Number.isSafeInteger(actionId) || actionId <= 0) return actionTakenError(res, 400, "VALIDATION_ERROR", "Invalid Ticket or Action Taken ID.");
+  const body = req.body || {};
+  if (typeof body.expectedUpdatedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(body.expectedUpdatedAt) || !Number.isFinite(Date.parse(body.expectedUpdatedAt))) return actionTakenError(res, 400, "VALIDATION_ERROR", "expectedUpdatedAt must be a valid ISO-8601 timestamp.");
+  try {
+    const prisma = getPrisma();
+    const current = await (prisma as any).actionTaken.findFirst({ where: { id: actionId, ticketId } });
+    if (!current) return actionTakenError(res, 404, "NOT_FOUND", "Action Taken not found for this Ticket.");
+    const merged = {
+      ...current,
+      ...body,
+      actionDateTime: body.actionDateTime ?? current.actionDateTime.toISOString(),
+    };
+    const invalid = validateActionFields(merged, true);
+    if (invalid) return actionTakenError(res, 400, "VALIDATION_ERROR", invalid);
+    const changed = await (prisma as any).actionTaken.updateMany({
+      where: { id: actionId, ticketId, updatedAt: new Date(body.expectedUpdatedAt) },
+      data: { ...editableActionData(body), updatedAt: new Date() },
+    });
+    if (changed.count !== 1) return actionTakenError(res, 409, "STALE_UPDATE", "This Action Taken record has been modified. Refresh and retry.");
+    const updated = await (prisma as any).actionTaken.findUnique({ where: { id: actionId }, include: actionTakenInclude });
+    return res.status(200).json({ success: true, data: updated });
+  } catch {
+    return actionTakenError(res, 500, "INTERNAL_ERROR", "Failed to update Action Taken.");
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Authentication Endpoints
 // ---------------------------------------------------------------------------
 
