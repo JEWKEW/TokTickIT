@@ -1,4 +1,6 @@
 import { getPrisma } from "../src/prisma.js";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // Standard bcrypt hash for "Password123!" for development seed accounts
 const SEED_PASSWORD_HASH = "$2b$10$A3Qzi8YcjMMgNxPsBA7KHO69eRjBCIB8KsBx8Uv6hLB4B.pirpLWy";
@@ -25,6 +27,8 @@ const seedUsers = [
   { name: "Bob Smith", email: "bob@toktickit.io", role: "REQUESTER" as const, isActive: true },
   { name: "Charlie Davis", email: "charlie@toktickit.io", role: "REQUESTER" as const, isActive: true },
   { name: "Diana Prince", email: "diana@toktickit.io", role: "REQUESTER" as const, isActive: true },
+  // Active Requester with no Tickets demonstrates zero requester metrics.
+  { name: "Frank Miller", email: "frank@toktickit.io", role: "REQUESTER" as const, isActive: true },
   // Inactive Requester (at least 1)
   { name: "Evan Wright", email: "evan@toktickit.io", role: "REQUESTER" as const, isActive: false },
 
@@ -109,12 +113,110 @@ const ticketSeedData = [
     internalNotes: [
       { authorEmail: "david.lee@toktickit.com", content: "Firmware v4.2.1 resolved channel interference." }
     ]
+  },
+  {
+    ticketNumber: "TKT-2026-000005",
+    requesterEmail: "alice@toktickit.io",
+    ownerEmail: "sarah.johnson@toktickit.com",
+    categoryName: "Account and Access",
+    systemName: "Email",
+    summary: "Waiting for requester to confirm mailbox access",
+    description: "Mailbox permissions were repaired; requester confirmation is pending.",
+    requestedPriority: "Medium",
+    itPriority: "Medium",
+    currentStatus: "Waiting for Requester",
+    publicComments: [],
+    internalNotes: [],
+  },
+  {
+    ticketNumber: "TKT-2026-000006",
+    requesterEmail: "bob@toktickit.io",
+    ownerEmail: "david.lee@toktickit.com",
+    categoryName: "Software",
+    systemName: "Grade Submission App",
+    summary: "Resolved grade submission error",
+    description: "The grade form rejected valid submissions after a browser update.",
+    requestedPriority: "Low",
+    itPriority: "Low",
+    currentStatus: "Closed",
+    publicComments: [],
+    internalNotes: [],
+  },
+  {
+    ticketNumber: "TKT-2026-000007",
+    requesterEmail: "charlie@toktickit.io",
+    ownerEmail: "michael.brown@toktickit.com",
+    categoryName: "Hardware",
+    systemName: "Corporate Laptop",
+    summary: "Laptop battery issue returned after resolution",
+    description: "The battery drains rapidly again, so the closed work has been reopened.",
+    requestedPriority: "High",
+    itPriority: "Urgent",
+    currentStatus: "Reopened",
+    publicComments: [],
+    internalNotes: [],
+  },
+  {
+    ticketNumber: "TKT-2026-000008",
+    requesterEmail: "diana@toktickit.io",
+    ownerEmail: null,
+    categoryName: "Network",
+    systemName: "Campus Wi-Fi",
+    summary: "Duplicate guest Wi-Fi request",
+    description: "Request withdrawn after the requester found the existing guest network instructions.",
+    requestedPriority: "Low",
+    itPriority: "Low",
+    currentStatus: "Cancelled",
+    publicComments: [],
+    internalNotes: [],
   }
 ];
 
-async function main() {
-  const prisma = getPrisma();
-  console.log("Seeding TokTickIT Lab 3 database...");
+const actionSeedData = [
+  {
+    ticketNumber: "TKT-2026-000001",
+    performedByEmail: "sarah.johnson@toktickit.com",
+    hoursAgo: 8,
+    actionDescription: "Reviewed VPN authentication logs",
+    result: "Found intermittent RADIUS timeout on gateway 2.",
+    followUpRequired: true,
+    followUpNote: "Recheck authentication after the gateway patch.",
+    attachmentNotes: "See vpn-radius-check.txt",
+  },
+  {
+    ticketNumber: "TKT-2026-000002",
+    performedByEmail: "michael.brown@toktickit.com",
+    hoursAgo: 30,
+    actionDescription: "Inspected laptop display cable",
+    result: "Cable was seated correctly; flicker remains under load.",
+    followUpRequired: true,
+    followUpNote: "Run the panel diagnostic after driver update.",
+    attachmentNotes: null,
+  },
+  {
+    ticketNumber: "TKT-2026-000002",
+    performedByEmail: "sarah.johnson@toktickit.com",
+    hoursAgo: 4,
+    actionDescription: "Updated graphics driver and repeated display test",
+    result: "Display remained stable during the test.",
+    followUpRequired: false,
+    followUpNote: null,
+    attachmentNotes: "Diagnostic result recorded in display-test.txt",
+  },
+  {
+    ticketNumber: "TKT-2026-000004",
+    performedByEmail: "david.lee@toktickit.com",
+    hoursAgo: 20,
+    actionDescription: "Restarted library access point and checked coverage",
+    result: "Requester confirmed stable Wi-Fi coverage.",
+    followUpRequired: false,
+    followUpNote: null,
+    attachmentNotes: null,
+  },
+];
+
+export async function seedDatabase(prisma = getPrisma()): Promise<void> {
+  console.log("Seeding TokTickIT Lab 4 database...");
 
   // 1. Seed Categories
   for (const name of categories) {
@@ -239,14 +341,65 @@ async function main() {
     }
   }
 
-  console.log("Database seeded successfully with 5 Requesters, 4 IT Staff, 1 Admin, and realistic tickets with comments/notes.");
+  // 5. Seed Actions Taken by stable natural fixture key so repeated runs update
+  // the same rows instead of creating duplicates. Distinct work times use the
+  // seed run's current time to keep dashboard examples recent.
+  for (const action of actionSeedData) {
+    const ticket = await prisma.ticket.findUnique({
+      where: { ticketNumber: action.ticketNumber },
+      select: { id: true },
+    });
+    const performer = userMap.get(action.performedByEmail);
+
+    if (!ticket || !performer) {
+      console.warn(`Skipping Action Taken for ${action.ticketNumber}: missing Ticket or performer.`);
+      continue;
+    }
+
+    const actionDateTime = new Date(Date.now() - action.hoursAgo * 60 * 60 * 1000);
+    const existingAction = await prisma.actionTaken.findFirst({
+      where: {
+        ticketId: ticket.id,
+        performedById: performer.id,
+        actionDescription: action.actionDescription,
+      },
+    });
+    const actionData = {
+      actionDateTime,
+      result: action.result,
+      followUpRequired: action.followUpRequired,
+      followUpNote: action.followUpNote,
+      attachmentNotes: action.attachmentNotes,
+    };
+
+    if (existingAction) {
+      await prisma.actionTaken.update({
+        where: { id: existingAction.id },
+        data: actionData,
+      });
+    } else {
+      await prisma.actionTaken.create({
+        data: {
+          ticketId: ticket.id,
+          performedById: performer.id,
+          actionDescription: action.actionDescription,
+          ...actionData,
+        },
+      });
+    }
+  }
+
+  console.log("Database seeded successfully with Lab 4 status, assignment, priority, and Actions Taken fixtures.");
 }
 
-main()
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  const prisma = getPrisma();
+  seedDatabase(prisma)
   .catch((e) => {
     console.error("Error seeding database:", e);
     process.exit(1);
   })
   .finally(async () => {
-    await getPrisma().$disconnect();
+    await prisma.$disconnect();
   });
+}
