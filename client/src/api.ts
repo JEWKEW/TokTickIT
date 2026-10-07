@@ -58,6 +58,58 @@ export interface PublicComment {
   };
 }
 
+export interface ActionTaken {
+  id: number;
+  ticketId: number;
+  performedById?: number;
+  performedBy?: { id: number; name: string; email?: string; role?: string };
+  actionDateTime: string;
+  actionDescription: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ActionTakenInput = Pick<ActionTaken, "actionDateTime" | "actionDescription" | "result" | "followUpRequired" | "followUpNote" | "attachmentNotes">;
+
+export async function fetchActionsTaken(ticketId: number, userId: number): Promise<ActionTaken[]> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data?.error?.message || "Failed to retrieve Actions Taken");
+  return data.data;
+}
+
+export async function createActionTaken(ticketId: number, input: ActionTakenInput, userId: number): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+    method: "POST",
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data?.error?.message || "Failed to create Action Taken");
+  return data.data;
+}
+
+export async function updateActionTaken(ticketId: number, actionId: number, input: Partial<ActionTakenInput>, expectedUpdatedAt: string, userId: number): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken/${actionId}`, {
+    method: "PATCH",
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    body: JSON.stringify({ ...input, expectedUpdatedAt }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    const error = new Error(data?.error?.message || "Failed to update Action Taken");
+    (error as Error & { code?: string }).code = data?.error?.code;
+    throw error;
+  }
+  return data.data;
+}
+
 export interface SystemStatus {
   online: boolean;
   categories: Category[];
