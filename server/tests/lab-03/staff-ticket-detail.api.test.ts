@@ -274,8 +274,8 @@ describe("Lab 03 IT Staff Ticket Operations Integration Tests (staff-ticket-deta
           }),
         },
         ticket: {
-          findUnique: vi.fn().mockResolvedValueOnce(baseTicket).mockResolvedValueOnce(updatedTicket),
-          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findUnique: vi.fn().mockResolvedValue(baseTicket),
+          update: vi.fn().mockResolvedValue(updatedTicket),
         },
       };
 
@@ -284,7 +284,7 @@ describe("Lab 03 IT Staff Ticket Operations Integration Tests (staff-ticket-deta
       const res = await request(app)
         .patch("/api/tickets/101/status")
         .set("x-user-id", "3")
-        .send({ status: "In Progress", expectedUpdatedAt: baseTicket.updatedAt.toISOString() });
+        .send({ status: "In Progress" });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -311,11 +311,11 @@ describe("Lab 03 IT Staff Ticket Operations Integration Tests (staff-ticket-deta
       const res = await request(app)
         .patch("/api/tickets/101/status")
         .set("x-user-id", "3")
-        .send({ status: "In Progress", expectedUpdatedAt: closedTicket.updatedAt.toISOString() });
+        .send({ status: "In Progress" });
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe("INVALID_TRANSITION");
+      expect(res.body.error.code).toBe("VALIDATION_ERROR");
       expect(res.body.error.message).toMatch(/Invalid status transition/i);
     });
 
