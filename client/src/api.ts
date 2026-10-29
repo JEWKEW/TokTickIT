@@ -217,6 +217,29 @@ export interface PaginatedTickets {
   meta: PaginationMeta;
 }
 
+export interface RequesterDashboardTicket {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: string;
+  updatedAt: string;
+}
+
+export interface RequesterDashboardData {
+  metrics: { openCount: number; inProgressCount: number; resolvedCount: number; closedCount: number; waitingForRequesterCount: number };
+  recentlyUpdated: RequesterDashboardTicket[];
+  recentlyResolved: RequesterDashboardTicket[];
+}
+
+export async function fetchRequesterDashboard(userId: number): Promise<RequesterDashboardData> {
+  const res = await fetch(`${API_URL}/api/dashboards/requester`, {
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data?.error?.message || "Unable to load dashboard metrics");
+  return data.data;
+}
+
 export async function fetchTickets(
   params: TicketFilterParams = {},
   userId: number

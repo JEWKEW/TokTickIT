@@ -182,6 +182,11 @@ header.bg-zen-green {
   color: #475569;
 }
 
+.pill-status-cancelled {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
 /* Priority variants */
 .pill-priority-high {
   background-color: #fee2e2;

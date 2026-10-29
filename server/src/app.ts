@@ -106,6 +106,40 @@ app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok", service: "TokTickIT API" });
 });
 
+// Issue 7: concise, authenticated Requester dashboard metrics.
+app.get("/api/dashboards/requester", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  if (!req.user || req.user.role !== "REQUESTER") {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Requester dashboard access required" } });
+  }
+  try {
+    const prisma = getPrisma();
+    const requesterId = req.user.id;
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const terminal = ["Resolved", "Closed", "Cancelled"];
+    const owned = { requesterId };
+    const recentResolvedWhere = { ...owned, currentStatus: { in: ["Resolved", "Closed"] }, updatedAt: { gte: since } };
+    const [openCount, inProgressCount, waitingCount, resolvedCount, closedCount, recentTickets, recentlyResolved] = await Promise.all([
+      prisma.ticket.count({ where: { ...owned, currentStatus: { notIn: terminal } } }),
+      prisma.ticket.count({ where: { ...owned, currentStatus: "In Progress" } }),
+      prisma.ticket.count({ where: { ...owned, currentStatus: "Waiting for Requester" } }),
+      prisma.ticket.count({ where: { ...owned, currentStatus: "Resolved" } }),
+      prisma.ticket.count({ where: { ...owned, currentStatus: "Closed" } }),
+      prisma.ticket.findMany({
+        where: owned, orderBy: { updatedAt: "desc" }, take: 5,
+        select: { id: true, ticketNumber: true, summary: true, currentStatus: true, updatedAt: true },
+      }),
+      prisma.ticket.findMany({
+        where: recentResolvedWhere, orderBy: { updatedAt: "desc" }, take: 5,
+        select: { id: true, ticketNumber: true, summary: true, currentStatus: true, updatedAt: true },
+      }),
+    ]);
+    return res.json({ success: true, data: { metrics: { openCount, inProgressCount, resolvedCount, closedCount, waitingForRequesterCount: waitingCount }, recentlyUpdated: recentTickets, recentlyResolved } });
+  } catch (error) {
+    console.error("Requester dashboard error:", error);
+    return res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Unable to load dashboard metrics" } });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Lab 4: Actions Taken
 // ---------------------------------------------------------------------------
@@ -561,10 +595,11 @@ const handleGetTickets = async (req: AuthRequest, res: Response) => {
     }
 
     if (status && status.toLowerCase() !== "all") {
-      whereClause.currentStatus = {
-        equals: status,
-        mode: "insensitive",
-      };
+      if (userRole === "REQUESTER" && status === "open-tickets") {
+        whereClause.currentStatus = { notIn: ["Resolved", "Closed", "Cancelled"] };
+      } else {
+        whereClause.currentStatus = { equals: status, mode: "insensitive" };
+      }
     }
 
     if (search) {

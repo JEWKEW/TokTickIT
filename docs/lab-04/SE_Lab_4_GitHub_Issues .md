@@ -394,27 +394,27 @@ Total open Tickets, Tickets waiting for the Requester, recently updated Tickets,
 ### Reference mockup (handout p.6) [H§8.2]
 Welcome message; metric cards My Open Tickets, In Progress, Resolved, Closed, each with a "View all" link; "My Recent Tickets" list with status badge and date/time; Quick Actions: Create Ticket, View My Tickets.
 
-### DECIDE in spec [H§4.6, H§6.2]
-Exact metric names, calculation for each metric, time zone and date boundaries, links/query parameters for drill-down, behavior when no records exist.
+### Decisions recorded in the specification [H§4.6, H§6.2]
+Metric names and calculations, UTC date boundary, drill-down filters, and zero/empty behavior are recorded in `specification.md` and `api-spec.md`.
 
 ### Tasks
-- [ ] Backend endpoint returns concise metric data, not entire Ticket collections [H§6.2]
-- [ ] All metrics calculated by the backend from authoritative data [H§4.6]
-- [ ] Query filters strictly by the authenticated Requester (AC-02)
-- [ ] Each card/count has a defined query, empty behavior, and drill-down destination [H§4.6]
-- [ ] Recent / attention-required Ticket list
-- [ ] Dashboard navigation item with clear active-page indication [H§7]
-- [ ] Concise metric cards with labels, values, and **accessible drill-down actions** [H§7]
-- [ ] Loading, empty, forbidden, and safe-failure feedback [H§8.1 pattern, H§8.5]
-- [ ] Responsive card arrangement; no horizontal scrolling [H§7]
+- [x] Backend endpoint returns concise metric data, not entire Ticket collections [H§6.2]
+- [x] All metrics calculated by the backend from authoritative data [H§4.6]
+- [x] Query filters strictly by the authenticated Requester (AC-02)
+- [x] Each card/count has a defined query, empty behavior, and drill-down destination [H§4.6]
+- [x] Recent and attention-related Ticket statuses are visible in the recent list and waiting-for-requester metric
+- [x] Requester `My Tickets` navigation item has a clear active-page indication [H§7, H§8.2]
+- [x] Concise metric cards with labels, values, and **accessible drill-down actions** [H§7]
+- [x] Loading, empty, forbidden, and safe-failure feedback [H§8.1 pattern, H§8.5]
+- [x] Responsive card arrangement; no horizontal scrolling [H§7]
 
 ### Evidence needed (Answer Part 8) [H§14]
 Requester-owned metrics, recent and attention-required Tickets, drill-down, ownership protection.
 
 ### Acceptance criteria for this issue
-- [ ] AC-02 passes
-- [ ] A Requester cannot see another Requester's data via the API
-- [ ] Zero-state and non-zero seed data both display correctly
+- [x] AC-02 passes
+- [x] A Requester cannot see another Requester's data via the API
+- [x] Zero-state and non-zero data display correctly in API and UI tests
 
 ---
 

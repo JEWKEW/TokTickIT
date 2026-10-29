@@ -265,6 +265,8 @@ The endpoint is Requester-only and only the owner may call it. The response retu
     "metrics": {
       "openCount": 5,
       "inProgressCount": 2,
+      "resolvedCount": 3,
+      "closedCount": 4,
       "waitingForRequesterCount": 1
     },
     "recentlyUpdated": [
@@ -272,10 +274,7 @@ The endpoint is Requester-only and only the owner may call it. The response retu
         "id": 12,
         "ticketNumber": "TKT-2026-000012",
         "summary": "Laptop screen flickers when on battery",
-        "category": "Hardware",
         "currentStatus": "In Progress",
-        "requesterResolvedIndicated": false,
-        "createdAt": "2026-10-06T14:20:00.000Z",
         "updatedAt": "2026-10-07T10:30:00.000Z"
       }
     ],
@@ -391,10 +390,12 @@ Action updates must also verify that the Action Taken belongs to the Ticket iden
 
 - Requester scope is always the authenticated user's `requesterId`; the client cannot supply another identity.
 - Requester `open` counts statuses other than Resolved, Closed, or Cancelled. `waitingForRequester` is a separate subset. Include `inProgress`, a five-item `recentlyUpdated` list, and a five-item `recentlyResolved` list.
+- `resolvedCount` and `closedCount` count owned Tickets in those exact statuses. The separate `recentlyResolved` list includes Resolved and Closed Tickets whose `updatedAt` falls within the preceding 30 days.
 - `recentlyUpdated` sorts by `updatedAt` descending. `recentlyResolved` includes Resolved and Closed tickets whose `updatedAt` is within the prior 30 days, sorted newest first.
 - Staff metrics include counts for all eight statuses, unassigned tickets, tickets whose `ownerId` is the current user, counts by non-null IT Priority, five recently updated tickets, and five latest Actions Taken by the current user ordered by `actionDateTime` descending.
 - All date boundaries use UTC. Recent lists return `[]` and zero-count metrics return `0` when no records match. Dashboard endpoints return summaries only, never complete ticket collections.
 - Metric cards drill down to `/queue` or `/my-tickets` with the corresponding supported status/owner filter. Ticket rows link to `/tickets/:id`.
+- Requester dashboard cards drill down to `/my-tickets`; `status=open-tickets` means every status except Resolved, Closed, and Cancelled. Other card filters use the exact status.
 - Administrators receive staff metrics. Account counts are optional; if included, return them only for Administrators and count active users by role.
 
 ## 9. Requirement Coverage

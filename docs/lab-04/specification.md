@@ -92,6 +92,13 @@ Evolve the **TokTickIT** IT Service Desk platform by introducing structured **Ac
 - A Requester's `indicate-resolved` operation is advisory only. It records the flag and time, returns the unchanged formal status, and is available only to the owner of the Ticket.
 - Every status transition must include the `updatedAt` timestamp last read. The backend validates the transition and performs a conditional update against that timestamp; a stale version receives HTTP 409 `STALE_UPDATE` with no status change.
 
+### Requester Dashboard Decisions (Issue 7)
+
+- Dashboard metrics are computed by the API for the authenticated Requester only. `openCount` excludes Resolved, Closed, and Cancelled; `inProgressCount`, `resolvedCount`, and `closedCount` count their exact statuses. The API also calculates `waitingForRequesterCount` to identify Tickets requiring attention.
+- The `recentlyUpdated` and `recentlyResolved` summaries each return up to five Tickets, ordered by `updatedAt` descending. `recentlyResolved` includes Resolved or Closed Tickets updated during the preceding 30 days.
+- All date cutoffs use UTC. Empty metric results are `0`; empty Ticket lists are `[]`.
+- The four dashboard cards match the handout mockup: My Open Tickets, In Progress, Resolved, and Closed. Cards open My Tickets with the matching status filter. The special `open-tickets` filter includes all statuses except Resolved, Closed, and Cancelled; exact status filters remain exact. Quick Actions link to Create Ticket and My Tickets.
+
 ---
 
 ## 6. Role-Based Access Control (RBAC) Authorization Matrix

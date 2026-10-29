@@ -22,7 +22,7 @@ Navigation headers adapt dynamically to the authenticated user's role while pres
 ### Dynamic Header Navbar Matrix:
 - **Left Brand Section**: **TokTickIT** logo + System Title + Role Badge.
 - **Center Navigation Options**:
-  - **Requester Role**: `Dashboard` (`/requester-dashboard`), `My Tickets` (`/my-tickets`), `Create Ticket` (`/tickets/new`).
+  - **Requester Role**: `My Tickets` (Requester dashboard view), `Create Ticket` (`/tickets/new`). The dashboard Quick Action `View My Tickets` opens the full ticket list.
   - **IT Staff Role**: `Dashboard` (`/staff-dashboard`), `Ticket Queue` (`/queue`).
   - **Administrator Role**: `Dashboard` (`/staff-dashboard`), `Ticket Queue` (`/queue`), `User Management` (`/admin/users`).
 - **Right Profile Menu**: User Full Name, Role Badge, `Change Password`, `Logout`.
@@ -65,17 +65,19 @@ Navigation headers adapt dynamically to the authenticated user's role while pres
 ### 3.2. Requester Dashboard (`/requester-dashboard`)
 
 - **Header Section**:
-  - Title: `"Requester Support Dashboard"`
-  - Subheading: `"Welcome, [User Name]! Summary of your submitted support tickets."`
-  - Action Controls: `Create New Ticket` primary action button.
+  - Welcome heading: `"Welcome, [User Name]!"`
+  - Subheading: `"Here's the latest on your requests."`
 - **Metric Cards Grid (4-col desktop, 2-col tablet, 1-col mobile)**:
-  1. **Open Tickets**: Count of tickets except `Resolved`, `Closed`, or `Cancelled`; Waiting for Requester is a separately shown subset. Drill-down filters the existing My Tickets list to open statuses.
-  2. **In Progress**: Count of tickets currently being worked on; drill-down filters status.
-  3. **Waiting for Requester**: Count awaiting requester response; drill-down filters status.
-  4. **Recently Resolved**: Resolved or Closed tickets updated in the preceding 30 days; drill-down filters resolved statuses.
+  1. **My Open Tickets**: Count of owned Tickets except `Resolved`, `Closed`, or `Cancelled`; drill-down opens My Tickets filtered to the same set.
+  2. **In Progress**: Count of owned Tickets currently being worked on; drill-down filters by status.
+  3. **Resolved**: Count of owned Tickets in the `Resolved` status; drill-down filters by status.
+  4. **Closed**: Count of owned Tickets in the `Closed` status; drill-down filters by status.
 - **Main Section — "My Recent Tickets"**:
-  - `Recently Updated` and `Recently Resolved` lists, each limited to five tickets, ordered by `updatedAt` descending and linked to Ticket Detail. Empty results show a concise empty state.
-  - Displays: Ticket Number, Created Date, Summary, Category, Status Badge, Advisory Resolution Badge (if indicated), and `"View Detail"` link.
+  - Show up to five owned Tickets from the recently updated and recently resolved summaries, ordered by `updatedAt` descending and linked to Ticket Detail. Each row shows Ticket Number, Summary, Status, and update time. Empty results show a concise empty state.
+  - A `View all` action opens My Tickets.
+- **Quick Actions**:
+  - `Create Ticket` opens the ticket submission form.
+  - `View My Tickets` opens the full My Tickets list.
 - **Feedback & State Handling**:
   - **Loading State**: Skeleton loader lines.
   - **Empty State**: Friendly card: `"You have no active support tickets. Need help?"` with a `Create Ticket` button.
