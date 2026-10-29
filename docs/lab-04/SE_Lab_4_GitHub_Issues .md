@@ -353,8 +353,10 @@ Implement and test the complete Ticket lifecycle from creation through closure o
 - A Requester indication that the problem appears resolved is **advisory** and does not change the Ticket to Resolved
 - IT Staff must review the work and formally update the Ticket [H§3]
 
-### DECIDE in spec
-The final permitted transition matrix and which roles may perform each transition. The exact resolution-gate conditions.
+### Decisions recorded in the specification
+- The BR-07 transition matrix is complete; IT Staff and Administrators may perform every permitted edge, and Requesters may not change formal status.
+- Resolved/Closed are limited to the listed paths in the matrix. No Action Taken or Requester-indication prerequisite is added to formal resolution.
+- Every status update requires the last-read `updatedAt` and returns `409 STALE_UPDATE` when that version is stale.
 
 ### Tasks
 - [ ] Document the full matrix (from-status × to-status × allowed role)

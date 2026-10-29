@@ -191,9 +191,10 @@
 }
 ```
 - **Validation Rules**:
-  - `status`: Must be a valid status string (`New`, `Open`, `In Progress`, `Waiting for Requester`, `Resolved`, `Closed`, `Reopened`, `Cancelled`).
+  - `status`: Must be one of `New`, `Open`, `In Progress`, `Waiting for Requester`, `Resolved`, `Closed`, `Reopened`, `Cancelled`. Legacy Lab 3 aliases `in_progress` and `waiting_for_requester` are accepted and normalized to canonical display names.
   - `expectedUpdatedAt`: Required ISO-8601 timestamp matching the Ticket version the client last read.
-  - Transition must be permitted by the BR-07 transition matrix.
+  - Only IT Staff and Administrators may write status changes. Both roles use the same BR-07 matrix: New → Open / In Progress / Cancelled; Open → In Progress / Waiting for Requester / Resolved / Cancelled; In Progress → Waiting for Requester / Resolved / Cancelled; Waiting for Requester → In Progress / Resolved / Cancelled; Resolved → Closed / Reopened; Reopened → In Progress / Resolved / Cancelled. Closed and Cancelled are terminal.
+  - Requester resolution indication and Action Taken existence are not prerequisites for formal resolution; the listed matrix and staff/admin role are the complete gate.
 - **Response `200 OK`**:
 ```json
 {
@@ -217,6 +218,16 @@
 }
 ```
 - **Response `409 Conflict`**: Stale update attempt.
+```json
+{
+  "success": false,
+  "error": {
+    "code": "STALE_UPDATE",
+    "message": "This Ticket was modified by another user. Refreshing..."
+  }
+}
+```
+- Status writes compare and update atomically using `{ id, updatedAt: expectedUpdatedAt }`; stale writes do not change the Ticket.
 
 ---
 
@@ -236,6 +247,7 @@
 }
 ```
 *(Note: `currentStatus` is NOT altered by this request, adhering to BR-08).*
+The endpoint is Requester-only and only the owner may call it. The response returns the unchanged `currentStatus` to make its advisory nature explicit.
 
 ---
 

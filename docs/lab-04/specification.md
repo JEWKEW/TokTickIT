@@ -85,6 +85,13 @@ Evolve the **TokTickIT** IT Service Desk platform by introducing structured **Ac
 | **BR-16** | **Assignment Validity** | Ticket ownership may be null; otherwise `ownerId` must refer to an active IT Staff or Administrator, preserving the Lab 3 assignment rule. |
 | **BR-17** | **Dashboard Definitions** | Requester `open` means status is not Resolved, Closed, or Cancelled; Waiting for Requester is also shown as a separate subset. Recent lists are ordered by `updatedAt` descending and limited to five. `recently resolved` means status Resolved or Closed and `updatedAt` is within the preceding 30 days. Use UTC boundaries; drill-down applies the matching status filter to the existing list/queue. Empty collections return count zero and an empty list. |
 
+### Ticket Workflow Decisions (Issue 6)
+
+- The BR-07 transition matrix is the complete formal workflow. IT Staff and Administrators may perform every permitted edge; Requesters may not change `currentStatus`.
+- Formal entry to `Resolved` is allowed only along the listed edges (`Open`, `In Progress`, `Waiting for Requester`, or `Reopened` to `Resolved`). `Closed` can only follow `Resolved`; `Closed` and `Cancelled` are terminal. No extra Action Taken or Requester-indication prerequisite is imposed, because neither is specified as a gate in BR-07/BR-08.
+- A Requester's `indicate-resolved` operation is advisory only. It records the flag and time, returns the unchanged formal status, and is available only to the owner of the Ticket.
+- Every status transition must include the `updatedAt` timestamp last read. The backend validates the transition and performs a conditional update against that timestamp; a stale version receives HTTP 409 `STALE_UPDATE` with no status change.
+
 ---
 
 ## 6. Role-Based Access Control (RBAC) Authorization Matrix

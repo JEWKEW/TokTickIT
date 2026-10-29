@@ -368,16 +368,18 @@ export async function updateITPriority(ticketId, itPriority, tokenOrUserId) {
     }
     return data.data;
 }
-export async function updateTicketStatus(ticketId, status, tokenOrUserId) {
+export async function updateTicketStatus(ticketId, status, expectedUpdatedAt, tokenOrUserId) {
     const url = `${API_URL}/api/tickets/${ticketId}/status`;
     const res = await fetch(url, {
         method: "PATCH",
         headers: buildAuthHeaders(tokenOrUserId),
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, expectedUpdatedAt }),
     });
     const data = await res.json();
     if (!res.ok || !data.success) {
-        throw new Error(data?.error?.message || "Failed to update ticket status");
+        const error = new Error(data?.error?.message || "Failed to update ticket status");
+        error.code = data?.error?.code;
+        throw error;
     }
     return data.data;
 }
