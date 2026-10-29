@@ -124,11 +124,12 @@ Rendered in the Ticket Detail header panel.
 
 - **Status Transition Selector (IT Staff & Admin)**:
   - Dropdown populated strictly with permitted next statuses based on the BR-07 transition matrix.
-  - Selecting a new status enables `Update Status` button.
-  - Upon submission, status badge and summary panel update dynamically without full page reload.
+  - Selecting a new status enables `Update Status` button; the selection alone does not modify the Ticket.
+  - Status writes include the Ticket's last-read `updatedAt`. On success, the displayed status refreshes; on `409 STALE_UPDATE`, show a safe conflict alert and reload the Ticket.
 - **Advisory Resolution Indication Banner (Requester & Staff View)**:
   - When `requesterResolvedIndicated = true`, a prominent Zen Green banner displays:
     - *"✓ Requester indicated this problem appears resolved on [Timestamp]. Awaiting IT Staff formal resolution."*
+  - Only the owning Requester sees the indication button. IT Staff/Admin see the advisory flag but cannot set it; the flag never changes formal status.
 
 ---
 

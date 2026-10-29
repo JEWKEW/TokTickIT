@@ -355,7 +355,7 @@ export async function removeAttachment(
 export async function indicateTicketResolved(
   ticketId: number,
   userId: number
-): Promise<{ id: number; requesterResolvedIndicated: boolean; requesterResolvedAt: string }> {
+): Promise<{ id: number; requesterResolvedIndicated: boolean; requesterResolvedAt: string; currentStatus: string }> {
   const url = `${API_URL}/api/tickets/${ticketId}/indicate-resolved`;
   const res = await fetch(url, {
     method: "PATCH",
@@ -569,17 +569,20 @@ export async function updateITPriority(
 export async function updateTicketStatus(
   ticketId: number,
   status: string,
+  expectedUpdatedAt: string,
   tokenOrUserId?: string | number
 ): Promise<Ticket> {
   const url = `${API_URL}/api/tickets/${ticketId}/status`;
   const res = await fetch(url, {
     method: "PATCH",
     headers: buildAuthHeaders(tokenOrUserId),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, expectedUpdatedAt }),
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data?.error?.message || "Failed to update ticket status");
+    const error = new Error(data?.error?.message || "Failed to update ticket status");
+    (error as Error & { code?: string }).code = data?.error?.code;
+    throw error;
   }
   return data.data;
 }

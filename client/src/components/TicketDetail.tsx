@@ -28,6 +28,21 @@ interface TicketDetailProps {
   onBack: () => void;
 }
 
+export function getPermittedStatusTransitions(currentStatus: string): string[] {
+  const transitions: Record<string, string[]> = {
+    "New": ["Open", "In Progress", "Cancelled"],
+    "Open": ["In Progress", "Waiting for Requester", "Resolved", "Cancelled"],
+    "In Progress": ["Waiting for Requester", "Resolved", "Cancelled"],
+    "Waiting for Requester": ["In Progress", "Resolved", "Cancelled"],
+    "Resolved": ["Closed", "Reopened"],
+    "Closed": [],
+    "Reopened": ["In Progress", "Resolved", "Cancelled"],
+    "Cancelled": [],
+  };
+  const canonicalStatus = Object.keys(transitions).find((status) => status.toLowerCase() === currentStatus.trim().toLowerCase());
+  return canonicalStatus ? [...transitions[canonicalStatus]] : [];
+}
+
 export default function TicketDetail({
   ticketId,
   userId,
@@ -69,6 +84,7 @@ export default function TicketDetail({
   const [updatingOwner, setUpdatingOwner] = useState<boolean>(false);
   const [updatingPriority, setUpdatingPriority] = useState<boolean>(false);
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+  const [pendingStatus, setPendingStatus] = useState<string>("");
   const [opError, setOpError] = useState<string | null>(null);
 
   // Bottom Tabs State (Image 1 & 5)
@@ -213,7 +229,12 @@ export default function TicketDetail({
     setIndicateError(null);
     try {
       const updated = await indicateTicketResolved(ticketId, userId);
-      setTicket((prev) => (prev ? { ...prev, requesterResolvedIndicated: updated.requesterResolvedIndicated } : null));
+      setTicket((prev) => (prev ? {
+        ...prev,
+        requesterResolvedIndicated: updated.requesterResolvedIndicated,
+        requesterResolvedAt: updated.requesterResolvedAt,
+        currentStatus: updated.currentStatus,
+      } : null));
     } catch (err: any) {
       setIndicateError(err.message || "Failed to indicate problem resolved");
     } finally {
@@ -294,40 +315,24 @@ export default function TicketDetail({
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
+  const handleUpdateStatus = async () => {
+    if (!ticket || !pendingStatus || pendingStatus === ticket.currentStatus) return;
     setUpdatingStatus(true);
     setOpError(null);
     try {
-      const updated = await updateTicketStatus(ticketId, newStatus, userId);
-      setTicket((prev) => (prev ? { ...prev, currentStatus: updated.currentStatus } : null));
+      const updated = await updateTicketStatus(ticketId, pendingStatus, ticket.updatedAt, userId);
+      setTicket((prev) => (prev ? { ...prev, ...updated } : updated));
+      setPendingStatus("");
     } catch (err: any) {
-      setOpError(err.message || "Failed to update ticket status");
+      if (err?.code === "STALE_UPDATE") {
+        setPendingStatus("");
+        setOpError("This record was modified by another user. Refreshing...");
+        await loadTicketDetail();
+      } else {
+        setOpError(err.message || "Failed to update ticket status");
+      }
     } finally {
       setUpdatingStatus(false);
-    }
-  };
-
-  const getPermittedTransitions = (currentStatus: string): string[] => {
-    const sLower = (currentStatus || "").toLowerCase();
-    switch (sLower) {
-      case "new":
-        return ["Open", "In Progress", "Cancelled"];
-      case "open":
-        return ["In Progress", "Waiting for Requester", "Resolved", "Cancelled"];
-      case "in progress":
-      case "in_progress":
-        return ["Waiting for Requester", "Resolved", "Cancelled"];
-      case "waiting for requester":
-      case "waiting_for_requester":
-        return ["In Progress", "Resolved", "Cancelled"];
-      case "resolved":
-        return ["Closed", "Reopened"];
-      case "reopened":
-        return ["In Progress", "Resolved", "Cancelled"];
-      case "closed":
-      case "cancelled":
-      default:
-        return [];
     }
   };
 
@@ -412,7 +417,7 @@ export default function TicketDetail({
       ) : ticket ? (
         <div className="d-flex flex-column gap-4">
           {opError && (
-            <div className="alert alert-danger mb-0" data-testid="operation-error">
+            <div className="alert alert-danger mb-0" role="alert" data-testid="operation-error">
               {opError}
             </div>
           )}
@@ -511,22 +516,35 @@ export default function TicketDetail({
                   {isStaffOrAdmin ? "Current Status" : "IT Priority"}
                 </label>
                 {isStaffOrAdmin ? (
+                  <>
                   <select
                     id="statusSelect"
                     className="form-select rounded-2"
                     style={{ borderColor: "#e2e8f0" }}
-                    value={ticket.currentStatus}
-                    onChange={(e) => handleUpdateStatus(e.target.value)}
+                    value={pendingStatus || ticket.currentStatus}
+                    onChange={(e) => setPendingStatus(e.target.value)}
                     disabled={updatingStatus}
                     data-testid="status-select"
                   >
                     <option value={ticket.currentStatus}>{ticket.currentStatus}</option>
-                    {getPermittedTransitions(ticket.currentStatus).map((st) => (
+                    {getPermittedStatusTransitions(ticket.currentStatus).map((st) => (
                       <option key={st} value={st}>
                         {st}
                       </option>
                     ))}
                   </select>
+                  {pendingStatus && pendingStatus !== ticket.currentStatus && (
+                    <button
+                      type="button"
+                      className="btn btn-zen-green btn-sm mt-2"
+                      onClick={handleUpdateStatus}
+                      disabled={updatingStatus}
+                      data-testid="update-status-btn"
+                    >
+                      {updatingStatus ? "Updating..." : "Update Status"}
+                    </button>
+                  )}
+                  </>
                 ) : (
                   <div
                     className="form-control rounded-2 bg-light d-flex align-items-center"
@@ -661,30 +679,27 @@ export default function TicketDetail({
               </div>
             </div>
 
-            {/* Requester Indication Banner (BR-05) */}
-            {!isStaffOrAdmin && (
-              <div className="mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
-                <span className="small text-muted">Problem Status Feedback:</span>
-                {ticket.requesterResolvedIndicated ? (
-                  <span
-                    className="pill-badge pill-status-resolved fs-6"
-                    data-testid="requester-resolved-badge"
-                  >
-                    ✓ Problem Appears Resolved by Requester
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-outline-zen-green btn-sm fw-medium rounded-2"
-                    onClick={handleIndicateResolved}
-                    disabled={indicatingResolved}
-                    data-testid="indicate-resolved-btn"
-                  >
-                    {indicatingResolved ? "Updating..." : "✓ Problem Appears Resolved"}
-                  </button>
-                )}
-              </div>
-            )}
+            {/* BR-08: Requester indication is advisory; formal status remains staff-controlled. */}
+            <div className="mt-3 pt-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2" data-testid="requester-resolution-feedback">
+              <span className="small text-muted">Requester problem feedback (advisory):</span>
+              {ticket.requesterResolvedIndicated ? (
+                <span className="pill-badge pill-status-resolved fs-6" data-testid="requester-resolved-badge">
+                  ✓ Requester indicated the problem appears resolved{ticket.requesterResolvedAt ? ` on ${new Date(ticket.requesterResolvedAt).toLocaleString()}` : ""}. Awaiting IT Staff formal resolution.
+                </span>
+              ) : isStaffOrAdmin ? (
+                <span className="small text-muted">No resolution indication from the Requester.</span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-outline-zen-green btn-sm fw-medium rounded-2"
+                  onClick={handleIndicateResolved}
+                  disabled={indicatingResolved}
+                  data-testid="indicate-resolved-btn"
+                >
+                  {indicatingResolved ? "Updating..." : "✓ Problem Appears Resolved"}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Bottom Tabbed Card matching Image 1 & Image 5 */}
