@@ -75,151 +75,11 @@ const uploadMiddleware = (req: Request, res: Response, next: NextFunction) => {
   });
 };
 
-const ticketStatusTransitions: Record<string, string[]> = {
-  "New": ["Open", "In Progress", "Cancelled"],
-  "Open": ["In Progress", "Waiting for Requester", "Resolved", "Cancelled"],
-  "In Progress": ["Waiting for Requester", "Resolved", "Cancelled"],
-  "Waiting for Requester": ["In Progress", "Resolved", "Cancelled"],
-  "Resolved": ["Closed", "Reopened"],
-  "Closed": [],
-  "Reopened": ["In Progress", "Resolved", "Cancelled"],
-  "Cancelled": [],
-};
-
-const statusByNormalizedName: Record<string, string> = Object.fromEntries(
-  Object.keys(ticketStatusTransitions).map((status) => [status.toLowerCase(), status]),
-);
-// Continue accepting the aliases used by the Lab 3 API while returning canonical display values.
-statusByNormalizedName.in_progress = "In Progress";
-statusByNormalizedName.waiting_for_requester = "Waiting for Requester";
-
-const isoTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
-
-function validIsoTimestamp(value: unknown): value is string {
-  return typeof value === "string" && isoTimestampPattern.test(value) && Number.isFinite(Date.parse(value));
-}
-
 // ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------
 app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok", service: "TokTickIT API" });
-});
-
-// ---------------------------------------------------------------------------
-// Lab 4: Actions Taken
-// ---------------------------------------------------------------------------
-const actionTakenInclude = {
-  performedBy: { select: { id: true, name: true, email: true, role: true } },
-};
-
-function actionTakenError(res: Response, status: number, code: string, message: string) {
-  return res.status(status).json({ success: false, error: { code, message } });
-}
-
-function validateActionFields(body: any, partial = false): string | null {
-  const fields = ["actionDescription", "actionDateTime", "result", "followUpRequired"];
-  if (!partial && fields.some((field) => body[field] === undefined)) return "Action description, date/time, result, and follow-up choice are required.";
-  if (partial && ![...fields, "followUpNote", "attachmentNotes"].some((field) => body[field] !== undefined)) return "At least one editable field is required.";
-  for (const [field, max] of [["actionDescription", 2000], ["result", 1000], ["followUpNote", 1000], ["attachmentNotes", 500]] as const) {
-    const value = body[field];
-    if (value === undefined || (field === "followUpNote" && value === null) || (field === "attachmentNotes" && value === null)) continue;
-    if (typeof value !== "string" || value.length > max || (["actionDescription", "result"].includes(field) && value.trim().length === 0)) {
-      return `${field} must be a non-empty string of at most ${max} characters.`;
-    }
-  }
-  if (body.followUpRequired !== undefined && typeof body.followUpRequired !== "boolean") return "followUpRequired must be a boolean.";
-  if (body.followUpRequired === true && (typeof body.followUpNote !== "string" || body.followUpNote.trim().length === 0)) {
-    return "Follow-up note is required when follow-up is requested.";
-  }
-  if (body.actionDateTime !== undefined) {
-    if (typeof body.actionDateTime !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(body.actionDateTime)) return "actionDateTime must be a valid ISO-8601 timestamp.";
-    const date = new Date(body.actionDateTime);
-    if (!Number.isFinite(date.getTime())) return "actionDateTime must be a valid ISO-8601 timestamp.";
-    if (date.getTime() > Date.now()) return "actionDateTime cannot be in the future.";
-  }
-  return null;
-}
-
-function editableActionData(body: any) {
-  const data: Record<string, unknown> = {};
-  for (const key of ["actionDescription", "result", "followUpRequired", "followUpNote", "attachmentNotes"] as const) {
-    if (body[key] !== undefined) data[key] = body[key];
-  }
-  if (body.actionDateTime !== undefined) data.actionDateTime = new Date(body.actionDateTime);
-  if (body.followUpRequired === false && body.followUpNote === undefined) data.followUpNote = null;
-  return data;
-}
-
-app.post("/api/tickets/:id/actions-taken", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
-  if (!req.user) return actionTakenError(res, 401, "UNAUTHORIZED", "Authentication required");
-  if (!["IT_STAFF", "ADMINISTRATOR"].includes(req.user.role)) return actionTakenError(res, 403, "FORBIDDEN", "Only IT Staff and Administrators can record Actions Taken.");
-  const ticketId = Number(req.params.id);
-  if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return actionTakenError(res, 400, "VALIDATION_ERROR", "Invalid ticket ID.");
-  const invalid = validateActionFields(req.body || {});
-  if (invalid) return actionTakenError(res, 400, "VALIDATION_ERROR", invalid);
-  try {
-    const prisma = getPrisma();
-    const existingTicket = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { id: true } });
-    if (!existingTicket) return actionTakenError(res, 404, "NOT_FOUND", "Ticket not found.");
-    const created = await (prisma as any).actionTaken.create({
-      data: { ticketId, performedById: req.user.id, ...editableActionData(req.body) },
-      include: actionTakenInclude,
-    });
-    return res.status(201).json({ success: true, data: created });
-  } catch {
-    return actionTakenError(res, 500, "INTERNAL_ERROR", "Failed to create Action Taken.");
-  }
-});
-
-app.get("/api/tickets/:id/actions-taken", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
-  if (!req.user) return actionTakenError(res, 401, "UNAUTHORIZED", "Authentication required");
-  const ticketId = Number(req.params.id);
-  if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return actionTakenError(res, 400, "VALIDATION_ERROR", "Invalid ticket ID.");
-  try {
-    const prisma = getPrisma();
-    const existingTicket = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { id: true, requesterId: true } });
-    if (!existingTicket) return actionTakenError(res, 404, "NOT_FOUND", "Ticket not found.");
-    if (req.user.role === "REQUESTER" && existingTicket.requesterId !== req.user.id) return actionTakenError(res, 403, "FORBIDDEN", "You do not have permission to view this ticket.");
-    if (!["REQUESTER", "IT_STAFF", "ADMINISTRATOR"].includes(req.user.role)) return actionTakenError(res, 403, "FORBIDDEN", "You do not have permission to view Actions Taken.");
-    const actions = await (prisma as any).actionTaken.findMany({
-      where: { ticketId }, include: actionTakenInclude, orderBy: [{ actionDateTime: "asc" }, { id: "asc" }],
-    });
-    return res.status(200).json({ success: true, data: actions });
-  } catch {
-    return actionTakenError(res, 500, "INTERNAL_ERROR", "Failed to retrieve Actions Taken.");
-  }
-});
-
-app.patch("/api/tickets/:id/actions-taken/:actionId", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
-  if (!req.user) return actionTakenError(res, 401, "UNAUTHORIZED", "Authentication required");
-  if (!["IT_STAFF", "ADMINISTRATOR"].includes(req.user.role)) return actionTakenError(res, 403, "FORBIDDEN", "Only IT Staff and Administrators can edit Actions Taken.");
-  const ticketId = Number(req.params.id);
-  const actionId = Number(req.params.actionId);
-  if (!Number.isSafeInteger(ticketId) || ticketId <= 0 || !Number.isSafeInteger(actionId) || actionId <= 0) return actionTakenError(res, 400, "VALIDATION_ERROR", "Invalid Ticket or Action Taken ID.");
-  const body = req.body || {};
-  if (typeof body.expectedUpdatedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(body.expectedUpdatedAt) || !Number.isFinite(Date.parse(body.expectedUpdatedAt))) return actionTakenError(res, 400, "VALIDATION_ERROR", "expectedUpdatedAt must be a valid ISO-8601 timestamp.");
-  try {
-    const prisma = getPrisma();
-    const current = await (prisma as any).actionTaken.findFirst({ where: { id: actionId, ticketId } });
-    if (!current) return actionTakenError(res, 404, "NOT_FOUND", "Action Taken not found for this Ticket.");
-    const merged = {
-      ...current,
-      ...body,
-      actionDateTime: body.actionDateTime ?? current.actionDateTime.toISOString(),
-    };
-    const invalid = validateActionFields(merged, true);
-    if (invalid) return actionTakenError(res, 400, "VALIDATION_ERROR", invalid);
-    const changed = await (prisma as any).actionTaken.updateMany({
-      where: { id: actionId, ticketId, updatedAt: new Date(body.expectedUpdatedAt) },
-      data: { ...editableActionData(body), updatedAt: new Date() },
-    });
-    if (changed.count !== 1) return actionTakenError(res, 409, "STALE_UPDATE", "This Action Taken record has been modified. Refresh and retry.");
-    const updated = await (prisma as any).actionTaken.findUnique({ where: { id: actionId }, include: actionTakenInclude });
-    return res.status(200).json({ success: true, data: updated });
-  } catch {
-    return actionTakenError(res, 500, "INTERNAL_ERROR", "Failed to update Action Taken.");
-  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1107,49 +967,110 @@ app.patch("/api/tickets/:id/it-priority", authenticateToken, enforcePasswordChan
 // ---------------------------------------------------------------------------
 app.patch("/api/tickets/:id/status", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user) return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } });
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+        },
+      });
+    }
+
     if (req.user.role !== "IT_STAFF" && req.user.role !== "ADMINISTRATOR") {
-      return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied: IT Staff or Administrator role required" } });
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied: IT Staff or Administrator role required",
+        },
+      });
     }
 
-    const ticketId = Number(req.params.id);
-    if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid ticket ID" } });
-
-    const { status: targetStatus, expectedUpdatedAt } = req.body || {};
-    if (typeof targetStatus !== "string" || !statusByNormalizedName[targetStatus.trim().toLowerCase()]) {
-      return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "A valid Ticket status is required" } });
+    const ticketId = parseInt(req.params.id, 10);
+    if (isNaN(ticketId)) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid ticket ID",
+        },
+      });
     }
-    if (!validIsoTimestamp(expectedUpdatedAt)) {
-      return res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "expectedUpdatedAt must be a valid ISO-8601 timestamp" } });
+
+    const { status: targetStatus } = req.body || {};
+    if (!targetStatus || typeof targetStatus !== "string" || targetStatus.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Valid status is required",
+        },
+      });
     }
 
     const prisma = getPrisma();
-    const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-    if (!ticket) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Ticket not found" } });
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
 
-    const currentStatus = statusByNormalizedName[ticket.currentStatus.trim().toLowerCase()];
-    const formattedStatus = statusByNormalizedName[targetStatus.trim().toLowerCase()];
-    if (!currentStatus || !ticketStatusTransitions[currentStatus].includes(formattedStatus)) {
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Ticket not found",
+        },
+      });
+    }
+
+    // BR-07 Status Transition Matrix
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+      "new": ["open", "in progress", "in_progress", "cancelled"],
+      "open": ["in progress", "in_progress", "waiting for requester", "waiting_for_requester", "resolved", "cancelled"],
+      "in progress": ["waiting for requester", "waiting_for_requester", "resolved", "cancelled"],
+      "in_progress": ["waiting for requester", "waiting_for_requester", "resolved", "cancelled"],
+      "waiting for requester": ["in progress", "in_progress", "resolved", "cancelled"],
+      "waiting_for_requester": ["in progress", "in_progress", "resolved", "cancelled"],
+      "resolved": ["closed", "reopened"],
+      "reopened": ["in progress", "in_progress", "resolved", "cancelled"],
+      "closed": [],
+      "cancelled": [],
+    };
+
+    const currentKey = ticket.currentStatus.trim().toLowerCase();
+    const targetKey = targetStatus.trim().toLowerCase();
+
+    const allowedNext = ALLOWED_TRANSITIONS[currentKey] || [];
+    if (!allowedNext.includes(targetKey)) {
       return res.status(400).json({
         success: false,
-        error: { code: "INVALID_TRANSITION", message: `Invalid status transition from '${ticket.currentStatus}' to '${targetStatus}'` },
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `Invalid status transition from '${ticket.currentStatus}' to '${targetStatus}'`,
+        },
       });
     }
 
-    // The same timestamp check and write happen atomically, so concurrent updates cannot race.
-    const changed = await prisma.ticket.updateMany({
-      where: { id: ticketId, updatedAt: new Date(expectedUpdatedAt) },
-      data: { currentStatus: formattedStatus, updatedAt: new Date() },
-    });
-    if (changed.count !== 1) {
-      return res.status(409).json({
-        success: false,
-        error: { code: "STALE_UPDATE", message: "This Ticket was modified by another user. Refreshing..." },
-      });
-    }
+    // Standardize status representation
+    const statusDisplayMap: Record<string, string> = {
+      "new": "New",
+      "open": "Open",
+      "in progress": "In Progress",
+      "in_progress": "In Progress",
+      "waiting for requester": "Waiting for Requester",
+      "waiting_for_requester": "Waiting for Requester",
+      "resolved": "Resolved",
+      "closed": "Closed",
+      "reopened": "Reopened",
+      "cancelled": "Cancelled",
+    };
 
-    const updatedTicket = await prisma.ticket.findUnique({
+    const formattedStatus = statusDisplayMap[targetKey] || targetStatus.trim();
+
+    const updatedTicket = await prisma.ticket.update({
       where: { id: ticketId },
+      data: { currentStatus: formattedStatus },
       include: {
         category: { select: { id: true, name: true } },
         relatedSystem: { select: { id: true, name: true } },
@@ -1157,7 +1078,11 @@ app.patch("/api/tickets/:id/status", authenticateToken, enforcePasswordChange, a
         owner: { select: { id: true, name: true, email: true } },
       },
     });
-    return res.status(200).json({ success: true, data: updatedTicket });
+
+    return res.status(200).json({
+      success: true,
+      data: updatedTicket,
+    });
   } catch (error: any) {
     console.error("Update ticket status error:", error);
     return res.status(500).json({
@@ -1669,10 +1594,6 @@ app.patch("/api/tickets/:id/indicate-resolved", authenticateToken, enforcePasswo
     const userId = req.user.id;
     const userRole = req.user.role || "REQUESTER";
 
-    if (userRole !== "REQUESTER") {
-      return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Only Requesters can indicate that a problem appears resolved" } });
-    }
-
     const ticketId = parseInt(req.params.id, 10);
     if (isNaN(ticketId)) {
       return res.status(400).json({
@@ -1723,7 +1644,6 @@ app.patch("/api/tickets/:id/indicate-resolved", authenticateToken, enforcePasswo
         id: updatedTicket.id,
         requesterResolvedIndicated: updatedTicket.requesterResolvedIndicated,
         requesterResolvedAt: updatedTicket.requesterResolvedAt,
-        currentStatus: updatedTicket.currentStatus,
       },
     });
   } catch (error: any) {

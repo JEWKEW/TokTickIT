@@ -102,10 +102,6 @@ test.describe('E2E Staff Ticket Flow & Operational Lifecycle (Lab 3)', () => {
       const options = await statusSelect.locator('option').allInnerTexts();
       if (options.length > 1) {
         await statusSelect.selectOption({ index: 1 });
-        const updateStatusButton = page.locator('[data-testid="update-status-btn"]');
-        if (await updateStatusButton.isVisible()) {
-          await updateStatusButton.click();
-        }
         await page.waitForTimeout(300);
       }
     }
