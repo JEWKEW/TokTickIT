@@ -8,6 +8,7 @@ import MyTicketsList from "./components/MyTicketsList.js";
 import TicketDetail from "./components/TicketDetail.js";
 import StaffTicketQueue from "./components/StaffTicketQueue.js";
 import UserManagement from "./components/UserManagement.js";
+import RequesterDashboard from "./components/RequesterDashboard.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
 
@@ -216,6 +217,17 @@ export default function App() {
                   setCurrentView("dashboard");
                 }}
               />
+            ) : currentView === "dashboard" ? (
+              <RequesterDashboard
+                userId={effectiveUser.id}
+                userName={effectiveUser.name}
+                onCreateTicket={() => setCurrentView("create-ticket")}
+                onViewTickets={(status) => {
+                  sessionStorage.setItem("requesterTicketStatusFilter", status || "all");
+                  setCurrentView("my-tickets");
+                }}
+                onSelectTicket={(ticketId) => { setSelectedTicketId(ticketId); setCurrentView("ticket-detail"); }}
+              />
             ) : currentView === "create-ticket" ? (
               <CreateTicketForm
                 userId={effectiveUser.id}
@@ -224,6 +236,7 @@ export default function App() {
             ) : (
               <MyTicketsList
                 userId={effectiveUser.id}
+                initialStatus={sessionStorage.getItem("requesterTicketStatusFilter") || "all"}
                 onCreateTicket={() => setCurrentView("create-ticket")}
                 onSelectTicket={(ticketId) => {
                   setSelectedTicketId(ticketId);

@@ -100,6 +100,15 @@ export async function createTicket(formData, userId) {
     }
     return data.data;
 }
+export async function fetchRequesterDashboard(userId) {
+    const res = await fetch(`${API_URL}/api/dashboards/requester`, {
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new Error(data?.error?.message || "Unable to load dashboard metrics");
+    return data.data;
+}
 export async function fetchTickets(params = {}, userId) {
     const queryParams = new URLSearchParams();
     if (params.search)

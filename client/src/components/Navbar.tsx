@@ -86,15 +86,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     type="button"
                     className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${
-                      currentView === "dashboard"
+                      currentView === "dashboard" || currentView === "my-tickets"
                         ? "fw-semibold"
                         : "opacity-85 hover-opacity-100"
                     }`}
                     style={{
-                      backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent",
+                      backgroundColor: currentView === "dashboard" || currentView === "my-tickets" ? "rgba(255, 255, 255, 0.18)" : "transparent",
                     }}
                     onClick={() => onNavigate("dashboard")}
                     data-testid="nav-dashboard-btn"
+                    aria-current={currentView === "dashboard" || currentView === "my-tickets" ? "page" : undefined}
                   >
                     <span>📄</span>
                     <span>My Tickets</span>
