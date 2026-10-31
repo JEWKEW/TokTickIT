@@ -240,6 +240,26 @@ export async function fetchRequesterDashboard(userId: number): Promise<Requester
   return data.data;
 }
 
+export interface StaffDashboardData {
+  metrics: { unassignedCount: number; myAssignedCount: number; statusCounts: Record<string, number>; priorityCounts: Record<string, number> };
+  recentTickets: Array<Pick<Ticket, "id" | "ticketNumber" | "summary" | "currentStatus" | "updatedAt"> & { itPriority: string | null; ownerId: number | null; owner: { id: number; name: string } | null }>;
+  myRecentActions: Array<Pick<ActionTaken, "id" | "ticketId" | "actionDescription" | "result" | "actionDateTime" | "followUpRequired"> & { ticketNumber: string }>;
+  adminUserCounts?: { activeRequesters: number; activeStaff: number; activeAdmins: number };
+}
+
+export class DashboardFetchError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); }
+}
+
+export async function fetchStaffDashboard(userId: number): Promise<StaffDashboardData> {
+  const res = await fetch(`${API_URL}/api/dashboards/staff`, {
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new DashboardFetchError(data?.error?.message || "Unable to load staff dashboard metrics", res.status);
+  return data.data;
+}
+
 export async function fetchTickets(
   params: TicketFilterParams = {},
   userId: number

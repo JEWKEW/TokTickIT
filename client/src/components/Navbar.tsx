@@ -55,8 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={(e) => {
               e.preventDefault();
               if (onNavigate) {
-                if (isAdmin) onNavigate("user-management");
-                else if (isStaff) onNavigate("queue");
+                if (isAdmin || isStaff) onNavigate("dashboard");
                 else onNavigate("dashboard");
               }
             }}
@@ -121,21 +120,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {isStaff && (
                 <>
+                  <button type="button" className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "dashboard" ? "fw-semibold" : "opacity-85 hover-opacity-100"}`} style={{ backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent" }} onClick={() => onNavigate("dashboard")} data-testid="nav-staff-dashboard-btn" aria-current={currentView === "dashboard" ? "page" : undefined}><span>▦</span><span>Dashboard</span></button>
                   <button
                     type="button"
                     className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${
-                      currentView === "queue" || currentView === "dashboard"
+                      currentView === "queue"
                         ? "fw-semibold"
                         : "opacity-85 hover-opacity-100"
                     }`}
                     style={{
-                      backgroundColor: currentView === "queue" || currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent",
+                      backgroundColor: currentView === "queue" ? "rgba(255, 255, 255, 0.18)" : "transparent",
                     }}
                     onClick={() => onNavigate("queue")}
                     data-testid="nav-queue-btn"
                   >
                     <span>📄</span>
-                    <span>My Queue</span>
+                    <span>Ticket Queue</span>
                   </button>
                   <button
                     type="button"
@@ -158,6 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {isAdmin && (
                 <>
+                  <button type="button" className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "dashboard" ? "fw-semibold" : "opacity-85 hover-opacity-100"}`} style={{ backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent" }} onClick={() => onNavigate("dashboard")} data-testid="nav-staff-dashboard-btn" aria-current={currentView === "dashboard" ? "page" : undefined}><span>▦</span><span>Dashboard</span></button>
                   <button
                     type="button"
                     className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${

@@ -109,6 +109,22 @@ export async function fetchRequesterDashboard(userId) {
         throw new Error(data?.error?.message || "Unable to load dashboard metrics");
     return data.data;
 }
+export class DashboardFetchError extends Error {
+    status;
+    constructor(message, status) {
+        super(message);
+        this.status = status;
+    }
+}
+export async function fetchStaffDashboard(userId) {
+    const res = await fetch(`${API_URL}/api/dashboards/staff`, {
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new DashboardFetchError(data?.error?.message || "Unable to load staff dashboard metrics", res.status);
+    return data.data;
+}
 export async function fetchTickets(params = {}, userId) {
     const queryParams = new URLSearchParams();
     if (params.search)

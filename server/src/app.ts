@@ -106,6 +106,55 @@ app.get("/api/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok", service: "TokTickIT API" });
 });
 
+// Issue 8: operational metrics and recent work for IT Staff and Administrators.
+app.get("/api/dashboards/staff", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
+  if (!req.user || (req.user.role !== "IT_STAFF" && req.user.role !== "ADMINISTRATOR")) {
+    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "IT Staff dashboard access required" } });
+  }
+  try {
+    const prisma = getPrisma();
+    const userId = req.user.id;
+    const statuses = ["New", "Open", "In Progress", "Waiting for Requester", "Resolved", "Closed", "Reopened", "Cancelled"];
+    const [statusCounts, unassignedCount, myAssignedCount, priorityGroups, recentTickets, recentActions, adminUserCounts] = await Promise.all([
+      Promise.all(statuses.map(async (status) => [status, await prisma.ticket.count({ where: { currentStatus: status } })] as const)),
+      prisma.ticket.count({ where: { ownerId: null } }),
+      prisma.ticket.count({ where: { ownerId: userId } }),
+      prisma.ticket.groupBy({ by: ["itPriority"], where: { itPriority: { not: null } }, _count: { _all: true } }),
+      prisma.ticket.findMany({
+        orderBy: { updatedAt: "desc" }, take: 5,
+        select: { id: true, ticketNumber: true, summary: true, currentStatus: true, itPriority: true, ownerId: true, owner: { select: { id: true, name: true } }, updatedAt: true },
+      }),
+      prisma.actionTaken.findMany({
+        where: { performedById: userId }, orderBy: { actionDateTime: "desc" }, take: 5,
+        select: { id: true, ticketId: true, actionDescription: true, result: true, actionDateTime: true, followUpRequired: true,
+          ticket: { select: { ticketNumber: true } } },
+      }),
+      req.user.role === "ADMINISTRATOR" ? prisma.user.groupBy({ by: ["role"], where: { isActive: true }, _count: { _all: true } }) : Promise.resolve(null),
+    ]);
+    const accountCounts = adminUserCounts?.reduce((counts: Record<string, number>, row: any) => { counts[row.role] = row._count._all; return counts; }, {} as Record<string, number>);
+    const myRecentActions = recentActions.map((action: any) => ({
+      id: action.id, ticketId: action.ticketId, ticketNumber: action.ticket.ticketNumber,
+      actionDescription: action.actionDescription, result: action.result,
+      actionDateTime: action.actionDateTime, followUpRequired: action.followUpRequired,
+    }));
+    return res.json({ success: true, data: {
+      metrics: {
+        statusCounts: Object.fromEntries(statusCounts), unassignedCount, myAssignedCount,
+        priorityCounts: Object.fromEntries(priorityGroups.map((row: any) => [row.itPriority, row._count._all])),
+      },
+      recentTickets, myRecentActions,
+      ...(accountCounts ? { adminUserCounts: {
+        activeRequesters: accountCounts.REQUESTER ?? 0,
+        activeStaff: accountCounts.IT_STAFF ?? 0,
+        activeAdmins: accountCounts.ADMINISTRATOR ?? 0,
+      } } : {}),
+    } });
+  } catch (error) {
+    console.error("Staff dashboard error:", error);
+    return res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Unable to load staff dashboard metrics" } });
+  }
+});
+
 // Issue 7: concise, authenticated Requester dashboard metrics.
 app.get("/api/dashboards/requester", authenticateToken, enforcePasswordChange, async (req: AuthRequest, res: Response) => {
   if (!req.user || req.user.role !== "REQUESTER") {

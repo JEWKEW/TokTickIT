@@ -9,6 +9,7 @@ import TicketDetail from "./components/TicketDetail.js";
 import StaffTicketQueue from "./components/StaffTicketQueue.js";
 import UserManagement from "./components/UserManagement.js";
 import RequesterDashboard from "./components/RequesterDashboard.js";
+import StaffDashboard from "./components/StaffDashboard.js";
 
 type UiState = "idle" | "loading" | "success" | "error";
 
@@ -47,9 +48,9 @@ export default function App() {
       const user = await getCurrentUser();
       setAuthUser(user);
       if (user.role === "ADMINISTRATOR") {
-        setCurrentView("user-management");
+        setCurrentView("dashboard");
       } else if (user.role === "IT_STAFF") {
-        setCurrentView("queue");
+        setCurrentView("dashboard");
       } else {
         setCurrentView("dashboard");
       }
@@ -85,9 +86,9 @@ export default function App() {
   const handleLoginSuccess = (user: AuthUser) => {
     setAuthUser(user);
     if (user.role === "ADMINISTRATOR") {
-      setCurrentView("user-management");
+      setCurrentView("dashboard");
     } else if (user.role === "IT_STAFF") {
-      setCurrentView("queue");
+      setCurrentView("dashboard");
     } else {
       setCurrentView("dashboard");
     }
@@ -260,6 +261,13 @@ export default function App() {
                   setCurrentView("queue");
                 }}
               />
+            ) : currentView === "dashboard" ? (
+              <StaffDashboard userId={effectiveUser.id} userName={effectiveUser.name}
+                onQueue={(filter) => { sessionStorage.setItem("staffQueueFilter", JSON.stringify(filter || {})); setCurrentView("queue"); }}
+                onCreateTicket={() => setCurrentView("create-ticket")}
+                onSelectTicket={(ticketId) => { setSelectedTicketId(ticketId); setCurrentView("ticket-detail"); }} />
+            ) : currentView === "create-ticket" ? (
+              <CreateTicketForm userId={effectiveUser.id} onCancel={() => setCurrentView("dashboard")} />
             ) : (
               <StaffTicketQueue
                 userRole={effectiveUser.role}
@@ -288,6 +296,13 @@ export default function App() {
                   setCurrentView("queue");
                 }}
               />
+            ) : currentView === "dashboard" ? (
+              <StaffDashboard userId={effectiveUser.id} userName={effectiveUser.name}
+                onQueue={(filter) => { sessionStorage.setItem("staffQueueFilter", JSON.stringify(filter || {})); setCurrentView("queue"); }}
+                onCreateTicket={() => setCurrentView("create-ticket")}
+                onSelectTicket={(ticketId) => { setSelectedTicketId(ticketId); setCurrentView("ticket-detail"); }} />
+            ) : currentView === "create-ticket" ? (
+              <CreateTicketForm userId={effectiveUser.id} onCancel={() => setCurrentView("dashboard")} />
             ) : (
               <StaffTicketQueue
                 userRole={effectiveUser.role}

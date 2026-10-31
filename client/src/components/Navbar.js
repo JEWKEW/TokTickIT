@@ -28,10 +28,8 @@ export const Navbar = ({ authUser, activeRequester, onChangeRequester, onLogout,
     return (_jsx("nav", { className: "navbar navbar-expand-lg bg-zen-green text-white shadow-sm px-3 py-1", style: { minHeight: 46 }, "data-testid": "app-navbar", children: _jsxs("div", { className: "container-fluid d-flex justify-content-between align-items-center px-1 px-md-2", children: [_jsxs("div", { className: "d-flex align-items-center gap-3", children: [_jsxs("a", { className: "navbar-brand fw-bold text-white d-flex align-items-center gap-1.5 text-decoration-none py-0 me-2", href: "#home", onClick: (e) => {
                                 e.preventDefault();
                                 if (onNavigate) {
-                                    if (isAdmin)
-                                        onNavigate("user-management");
-                                    else if (isStaff)
-                                        onNavigate("queue");
+                                    if (isAdmin || isStaff)
+                                        onNavigate("dashboard");
                                     else
                                         onNavigate("dashboard");
                                 }
@@ -43,15 +41,15 @@ export const Navbar = ({ authUser, activeRequester, onChangeRequester, onLogout,
                                                 ? "fw-semibold"
                                                 : "opacity-85 hover-opacity-100"}`, style: {
                                                 backgroundColor: currentView === "create-ticket" ? "rgba(255, 255, 255, 0.18)" : "transparent",
-                                            }, onClick: () => onNavigate("create-ticket"), "data-testid": "nav-create-ticket-btn", children: [_jsx("span", { children: "\u2295" }), _jsx("span", { children: "Create Ticket" })] })] })), isStaff && (_jsxs(_Fragment, { children: [_jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "queue" || currentView === "dashboard"
+                                            }, onClick: () => onNavigate("create-ticket"), "data-testid": "nav-create-ticket-btn", children: [_jsx("span", { children: "\u2295" }), _jsx("span", { children: "Create Ticket" })] })] })), isStaff && (_jsxs(_Fragment, { children: [_jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "dashboard" ? "fw-semibold" : "opacity-85 hover-opacity-100"}`, style: { backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent" }, onClick: () => onNavigate("dashboard"), "data-testid": "nav-staff-dashboard-btn", "aria-current": currentView === "dashboard" ? "page" : undefined, children: [_jsx("span", { children: "\u25A6" }), _jsx("span", { children: "Dashboard" })] }), _jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "queue"
                                                 ? "fw-semibold"
                                                 : "opacity-85 hover-opacity-100"}`, style: {
-                                                backgroundColor: currentView === "queue" || currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent",
-                                            }, onClick: () => onNavigate("queue"), "data-testid": "nav-queue-btn", children: [_jsx("span", { children: "\uD83D\uDCC4" }), _jsx("span", { children: "My Queue" })] }), _jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "create-ticket"
+                                                backgroundColor: currentView === "queue" ? "rgba(255, 255, 255, 0.18)" : "transparent",
+                                            }, onClick: () => onNavigate("queue"), "data-testid": "nav-queue-btn", children: [_jsx("span", { children: "\uD83D\uDCC4" }), _jsx("span", { children: "Ticket Queue" })] }), _jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "create-ticket"
                                                 ? "fw-semibold"
                                                 : "opacity-85 hover-opacity-100"}`, style: {
                                                 backgroundColor: currentView === "create-ticket" ? "rgba(255, 255, 255, 0.18)" : "transparent",
-                                            }, onClick: () => onNavigate("create-ticket"), "data-testid": "nav-create-ticket-btn", children: [_jsx("span", { children: "\u2295" }), _jsx("span", { children: "Create Ticket" })] })] })), isAdmin && (_jsxs(_Fragment, { children: [_jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "user-management"
+                                            }, onClick: () => onNavigate("create-ticket"), "data-testid": "nav-create-ticket-btn", children: [_jsx("span", { children: "\u2295" }), _jsx("span", { children: "Create Ticket" })] })] })), isAdmin && (_jsxs(_Fragment, { children: [_jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "dashboard" ? "fw-semibold" : "opacity-85 hover-opacity-100"}`, style: { backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent" }, onClick: () => onNavigate("dashboard"), "data-testid": "nav-staff-dashboard-btn", "aria-current": currentView === "dashboard" ? "page" : undefined, children: [_jsx("span", { children: "\u25A6" }), _jsx("span", { children: "Dashboard" })] }), _jsxs("button", { type: "button", className: `btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "user-management"
                                                 ? "fw-semibold"
                                                 : "opacity-85 hover-opacity-100"}`, style: {
                                                 backgroundColor: currentView === "user-management" ? "rgba(255, 255, 255, 0.18)" : "transparent",
