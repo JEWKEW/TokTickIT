@@ -1,7 +1,7 @@
 # 🎫 TokTickIT — IT Service Desk Platform
 
 ![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
-![Build Status](https://img.shields.io/badge/tests-215%20passed%20(100%25)-brightgreen.svg)
+![Build Status](https://img.shields.io/badge/local%20tests-474%20passed-brightgreen.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)
 ![React](https://img.shields.io/badge/React-18.x-61dafb?logo=react)
@@ -13,7 +13,7 @@
 ![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?logo=playwright)
 ![Design System](https://img.shields.io/badge/Design%20System-Zen%20Green%20%23006B3C-006B3C)
 
-**TokTickIT** is an enterprise-grade IT Service Desk ticketing platform. Lab 03 evolves the application into a secure, multi-tenant role-based system featuring JWT authentication, role-based authorization across three distinct roles (`REQUESTER`, `IT_STAFF`, `ADMINISTRATOR`), mandatory initial password resets (`mustChangePassword`), operational IT Staff Ticket Queue and ticket detail workflows (claiming/reassignment, IT Priority setting, permitted status transitions, append-only Public Comments, and restricted Internal Notes), and Administrator user management with safety guardrails (self-deactivation prevention, last active Administrator protection, and initial password resets).
+**TokTickIT** is an IT Service Desk ticketing platform. Labs 1–3 provide authenticated, role-based Requester, IT Staff, and Administrator workflows. Lab 4 adds Actions Taken work history, Ticket resolution signals and transitions, role-specific dashboards, dashboard APIs, and regression coverage while preserving ownership and access controls.
 
 ---
 
@@ -22,7 +22,7 @@
 - [Overview & Architecture](#-overview--architecture)
 - [Tech Stack](#-tech-stack)
 - [Database ERD & Schema](#-database-erd--schema)
-- [Lab 03 Features Implemented](#-lab-03-features-implemented)
+- [Lab 03 & 04 Features Implemented](#-lab-03--04-features-implemented)
 - [Design System & Visual Tokens](#-design-system--visual-tokens)
 - [Getting Started & Setup](#-getting-started--setup)
   - [Prerequisites](#prerequisites)
@@ -209,7 +209,7 @@ erDiagram
 
 ---
 
-## 🚀 Lab 03 Features Implemented
+## 🚀 Lab 03 & 04 Features Implemented
 
 ### ISSUE-01: Specification & Test Strategy
 - Authored [specification.md](file:///d:/TokTickIT/docs/lab-03/specification.md), [api-spec.md](file:///d:/TokTickIT/docs/lab-03/api-spec.md), [ui-spec.md](file:///d:/TokTickIT/docs/lab-03/ui-spec.md), and [tests.md](file:///d:/TokTickIT/docs/lab-03/tests.md).
@@ -249,8 +249,9 @@ erDiagram
 - Generated responsive visual audit screenshots across Desktop (1280px), Tablet (768px), and Mobile (375px) saved under `artifacts/lab-03/screenshots/`.
 
 ### ISSUE-09: Integration & Peer Review
-- Completed feature PR reviews and release integration.
-- Documented peer review logs ([reviewer.md](file:///d:/TokTickIT/docs/lab-03/reviewer.md)) and AI reflection log ([ai-use.md](file:///d:/TokTickIT/docs/lab-03/ai-use.md)).
+- Lab 4 regression coverage exercises authentication, Ticket ownership and details, attachments, comments, staff workflows, internal notes, dashboards, and Administrator user management.
+- Added the health endpoint and an opt-in dashboard performance smoke for a disposable local test database. See [Testing & Quality Assurance](#-testing--quality-assurance).
+- Lab 4 changes and test evidence are local; staging/main integration and peer review are tracked separately.
 
 ---
 
@@ -324,14 +325,15 @@ JWT_SECRET="toktickit_super_secret_jwt_key_2026"
 
 3. Run Prisma database migrations:
    ```bash
-   npm run prisma:migrate
+   npx prisma migrate deploy
    ```
+   Use `npm run prisma:migrate` only when creating or editing a migration during development. For a disposable test database, set `LAB4_MIGRATION_TEST_DATABASE_URL` to a local database whose name contains `test` or `lab4` before running the isolated migration test.
 
 4. Execute database seeding:
    ```bash
    npm run prisma:seed
    ```
-   *Populates seed categories, related systems, active/inactive users across all 3 roles, and ticket threads.*
+   *Populates seed categories, related systems, active/inactive users across all 3 roles, Tickets in all eight statuses, and representative Actions Taken for dashboard and workflow examples. Seed runs are repeatable.*
 
 ---
 
@@ -426,38 +428,54 @@ All protected endpoints require the `Authorization: Bearer <token>` HTTP header.
 
 ## 🧪 Testing & Quality Assurance
 
-### 1. Server Integration Test Suite (`server/`)
-Tests JWT authentication, RBAC middleware authorization, status transition enforcement, public comments, internal note confidentiality, and admin safety rules.
+Run the suites from their respective directories after applying migrations and seeding a local development database.
+
+### Server tests and build
 
 ```bash
 cd server
 npm test
+npm run build
 ```
-- **Result:** **13 test files, 88 passing tests (100% pass rate)**.
 
----
+The server suite covers earlier Labs 1–3 behavior and Lab 4 Actions Taken, Ticket workflow, dashboards, and migration checks. The database migration integration test runs only when `LAB4_MIGRATION_TEST_DATABASE_URL` points to a local disposable database with `test` or `lab4` in its name; otherwise that integration case is skipped.
 
-### 2. Client Component Test Suite (`client/`)
-Tests Login, Mandatory Change Password, Staff Ticket Queue, Staff Ticket Detail (IT Priority, Status, Claiming), User Management, and Requester workflows.
+Run the required dashboard performance smoke against a disposable local test database (it creates and removes a temporary schema and requires Prisma migrations to deploy):
+
+```powershell
+$env:LAB4_MIGRATION_TEST_DATABASE_URL = "postgresql://USER:PASSWORD@localhost:5432/toktickit_lab4_test?schema=public"
+node scripts/lab4-dashboard-performance-smoke.mjs
+```
+
+The smoke creates 500 Tickets and 2,000 Actions Taken in an isolated schema, makes one warm-up and five measured requests to each dashboard endpoint, reports the local runtime and timings, and removes the temporary schema. Each measured request must finish within 1,000 ms. Use only a local disposable database with `test` or `lab4` in its database name.
+
+### Client tests and build
 
 ```bash
 cd client
-npm test
+npm test -- --maxWorkers=1 --minWorkers=1
+npm run build
 ```
-- **Result:** **24 test files, 120 passing tests (100% pass rate)**.
 
----
+The client suite covers authentication, Requester and staff Ticket workflows, dashboards, Actions Taken, attachments, comments, notes, and administrator user management.
 
-### 3. Playwright E2E & Responsive Visual Audit (`root/`)
-Automated Playwright end-to-end tests verifying multi-role authentication, staff queue workflows, public comments, internal notes, and administrator user management.
+### Playwright end-to-end tests
+
+Start the server and client in separate terminals, then run from the repository root:
 
 ```bash
-# Run Lab 03 Playwright E2E test suite
-npx playwright test e2e/lab-03/
+npx playwright test
 ```
-- **Result:** **3 test suites, 7 tests passing (100% pass rate)**.
-- **Responsive Artifacts Generated:**
-  - Screenshots saved under `artifacts/lab-03/screenshots/` across Desktop (1280px), Tablet (768px), and Mobile (375px).
+
+Playwright uses `http://localhost:5173` and the server at `http://localhost:3000`. Use a seeded local database. The suite includes role-based authentication, Ticket workflows, dashboard drill-downs, and responsive dashboard checks at 1280px, 768px, and 375px.
+
+### Health check
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Expected response: `{"status":"ok","service":"TokTickIT API"}`.
 
 ---
 
@@ -466,8 +484,10 @@ npx playwright test e2e/lab-03/
 ```text
 TokTickIT/
 ├── artifacts/                     # Visual audit screenshots
-│   └── lab-03/
+│   ├── lab-03/
 │       └── screenshots/           # Authentication, Staff Queue, Staff Detail, User Admin screenshots
+│   └── lab-04/
+│       └── screenshots/           # Requester/Staff dashboards and Actions Taken
 ├── client/                        # Frontend React Application
 │   ├── public/                    # Static assets
 │   ├── src/
@@ -518,6 +538,8 @@ All required Lab 03 deliverables are documented under `docs/lab-03/`:
 - 🤝 [**Peer Review Record (`reviewer.md`)**](file:///d:/TokTickIT/docs/lab-03/reviewer.md): Pull request review logs, comments, responses, and reviewer approvals.
 - 🤖 [**AI Use & Reflection (`ai-use.md`)**](file:///d:/TokTickIT/docs/lab-03/ai-use.md): AI pair programming log, prompt history, and reflection on AI assistance.
 - ✅ [**Requirements Checklist (`Lab3_Requirements_Checklist.md`)**](file:///d:/TokTickIT/docs/lab-03/Lab3_Requirements_Checklist.md): Step-by-step checklist verifying completion of all Lab 03 features and deliverables.
+
+Lab 4 visual evidence is saved under `artifacts/lab-04/screenshots/`: dashboard screenshots at desktop, tablet, and mobile widths; the IT Staff Actions Taken view; a Staff Ticket Queue sample showing varied Requested and IT Priority values; and regression screenshots collected under `screenshots/regression/`.
 
 ---
 

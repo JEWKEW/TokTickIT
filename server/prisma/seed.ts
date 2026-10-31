@@ -281,6 +281,9 @@ export async function seedDatabase(prisma = getPrisma()): Promise<void> {
     const ticket = await prisma.ticket.upsert({
       where: { ticketNumber: t.ticketNumber },
       update: {
+        requesterId: requester.id,
+        categoryId,
+        relatedSystemId,
         summary: t.summary,
         description: t.description,
         requestedPriority: t.requestedPriority,

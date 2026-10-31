@@ -43,6 +43,7 @@ test.describe('E2E User Administration & Safety Rules (Lab 3)', () => {
     await page.locator('[data-testid="login-email-input"]').fill('admin@toktickit.com');
     await page.locator('[data-testid="login-password-input"]').fill('Password123!');
     await page.locator('[data-testid="login-submit-btn"]').click();
+    await page.locator('[data-testid="nav-admin-btn"]').click();
 
     await expect(page.locator('[data-testid="user-management-container"]')).toBeVisible();
 

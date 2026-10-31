@@ -13,6 +13,7 @@ export default function StaffTicketQueue({ userId, tokenOrUserId, userRole, onSe
         hasPrevPage: false,
     });
     const [categories, setCategories] = useState([]);
+    const [categoriesError, setCategoriesError] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     // Filters state
@@ -35,8 +36,8 @@ export default function StaffTicketQueue({ userId, tokenOrUserId, userRole, onSe
     const [showFilters, setShowFilters] = useState(false);
     useEffect(() => {
         fetchCategories()
-            .then(setCategories)
-            .catch((err) => console.error("Failed to load categories:", err));
+            .then((items) => { setCategories(items); setCategoriesError(null); })
+            .catch(() => setCategoriesError("Ticket categories could not be loaded. Category filtering is unavailable."));
     }, []);
     const loadQueue = useCallback(async () => {
         setLoading(true);
@@ -161,7 +162,7 @@ export default function StaffTicketQueue({ userId, tokenOrUserId, userRole, onSe
     }
     const startItem = meta.totalItems === 0 ? 0 : (meta.currentPage - 1) * meta.limit + 1;
     const endItem = Math.min(meta.currentPage * meta.limit, meta.totalItems);
-    return (_jsxs("div", { className: "container py-3 px-3 px-md-4", style: { maxWidth: 1140 }, "data-testid": "ticket-queue-container", children: [_jsxs("div", { className: "d-flex flex-column gap-2 mb-3", children: [_jsxs("div", { className: "d-flex gap-2 align-items-center", children: [_jsxs("div", { className: "position-relative flex-grow-1", children: [_jsx("span", { className: "position-absolute text-muted", style: { top: "50%", transform: "translateY(-50%)", left: "11px", fontSize: "0.85rem" }, children: "\uD83D\uDD0D" }), _jsx("input", { id: "queue-search", type: "text", className: "form-control form-control-sm bg-white", style: {
+    return (_jsxs("div", { className: "container py-3 px-3 px-md-4", style: { maxWidth: 1140 }, "data-testid": "ticket-queue-container", children: [categoriesError && _jsx("div", { className: "alert alert-warning py-2 px-3 small", role: "alert", children: categoriesError }), _jsxs("div", { className: "d-flex flex-column gap-2 mb-3", children: [_jsxs("div", { className: "d-flex gap-2 align-items-center", children: [_jsxs("div", { className: "position-relative flex-grow-1", children: [_jsx("span", { className: "position-absolute text-muted", style: { top: "50%", transform: "translateY(-50%)", left: "11px", fontSize: "0.85rem" }, children: "\uD83D\uDD0D" }), _jsx("input", { id: "queue-search", type: "text", className: "form-control form-control-sm bg-white", style: {
                                             paddingLeft: "32px",
                                             borderColor: "#e2e8f0",
                                         }, placeholder: "Search by ticket number or summary...", value: search, onChange: (e) => {

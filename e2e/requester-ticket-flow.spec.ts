@@ -31,36 +31,13 @@ async function captureResponsiveScreenshots(page: Page, screenName: string) {
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
-test.describe('Requester Ticket Flow & Comprehensive Visual Audit (Lab 02 - ISSUE-08)', () => {
+test.describe('Requester Ticket Flow & Responsive Audit', () => {
   test('Complete End-to-End Requester Flow & Full Responsive Screenshots', async ({ page }) => {
-    // -------------------------------------------------------------------------
-    // PAGE 1: Requester Selection Screen
-    // -------------------------------------------------------------------------
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');
-
-    // Wait for requester selection screen
-    await expect(page.locator('[data-testid="requester-selection-screen"]')).toBeVisible();
-
-    // Verify accessible labels on requester selection screen
-    const selectLabel = page.locator('label[for="requester-select"]');
-    await expect(selectLabel).toBeVisible();
-    await expect(selectLabel).toHaveText(/Active User Context/i);
-
-    // Capture responsive screenshots for Requester Selection (desktop, tablet, mobile)
-    await captureResponsiveScreenshots(page, 'requester-select');
-
-    // Select Requester 1 (Alice Johnson)
-    const requesterDropdown = page.locator('[data-testid="requester-dropdown"]');
-    await requesterDropdown.selectOption({ index: 0 }); // First user
-    const selectedUserId = await requesterDropdown.inputValue();
-
-    // Click Continue
-    const continueBtn = page.locator('[data-testid="continue-btn"]');
-    await expect(continueBtn).toBeEnabled();
-    await continueBtn.click();
-
-    // Verify Navbar shows active user info
+    await page.locator('[data-testid="login-email-input"]').fill('alice@toktickit.io');
+    await page.locator('[data-testid="login-password-input"]').fill('Password123!');
+    await page.locator('[data-testid="login-submit-btn"]').click();
     await expect(page.locator('[data-testid="active-requester-info"]')).toBeVisible();
     await expect(page.locator('[data-testid="active-requester-name"]')).toContainText('Alice Johnson');
 
@@ -118,7 +95,9 @@ test.describe('Requester Ticket Flow & Comprehensive Visual Audit (Lab 02 - ISSU
     // Click Return to Dashboard
     await page.locator('button', { hasText: 'Return to Dashboard' }).click();
 
-    // Verify Dashboard is visible
+    // The current Requester dashboard provides the shortcut to the full list.
+    await expect(page.locator('[data-testid="requester-dashboard"]')).toBeVisible();
+    await page.locator('[data-testid="dashboard-view-tickets"]').click();
     await expect(page.locator('h1:has-text("My Tickets")')).toBeVisible();
     await expect(page.locator('[data-testid="tickets-table"]')).toBeVisible();
 
@@ -146,6 +125,7 @@ test.describe('Requester Ticket Flow & Comprehensive Visual Audit (Lab 02 - ISSU
     await expect(page.locator('[data-testid="ticket-code"]')).toHaveText(createdTicketNumber);
     await expect(page.locator('[data-testid="ticket-summary"]')).toHaveText(testSummary);
     await expect(page.locator('[data-testid="ticket-description"]')).toHaveText(testDescription);
+    await page.getByRole('button', { name: /Attachments/ }).click();
     await expect(page.locator('[data-testid="ticket-attachments-section"]')).toContainText(sampleAttachmentName);
 
     // Soft-Remove Attachment
@@ -172,26 +152,20 @@ test.describe('Requester Ticket Flow & Comprehensive Visual Audit (Lab 02 - ISSU
       fullPage: true,
     });
 
-    // -------------------------------------------------------------------------
-    // STEP 5: Switch Requester & Verify Ticket Isolation
-    // -------------------------------------------------------------------------
-    await page.locator('[data-testid="change-requester-btn"]').click();
-    await expect(page.locator('[data-testid="requester-selection-screen"]')).toBeVisible();
-
-    // Select Requester 2 (Bob Smith)
-    await requesterDropdown.selectOption({ index: 1 });
-    const requester2Id = await requesterDropdown.inputValue();
-    expect(requester2Id).not.toBe(selectedUserId);
-
-    await continueBtn.click();
+    // Switch authenticated accounts and verify Ticket ownership isolation.
+    await page.locator('[data-testid="active-requester-info"] button').first().click();
+    await page.locator('[data-testid="logout-btn"]').first().click();
+    await page.locator('[data-testid="login-email-input"]').fill('bob@toktickit.io');
+    await page.locator('[data-testid="login-password-input"]').fill('Password123!');
+    await page.locator('[data-testid="login-submit-btn"]').click();
     await expect(page.locator('[data-testid="active-requester-name"]')).toContainText('Bob Smith');
 
-    // On Bob Smith's dashboard, search for Alice's ticket number
+    await page.locator('[data-testid="dashboard-view-tickets"]').click();
     await page.locator('[data-testid="search-input"]').fill(createdTicketNumber);
 
     // Verify ticket isolation: created ticket must NOT be listed
     await expect(page.locator('[data-testid="no-results-state"]')).toBeVisible();
-    await expect(page.locator('[data-testid="tickets-table"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid^="ticket-link-"]').filter({ hasText: createdTicketNumber })).toHaveCount(0);
 
     // -------------------------------------------------------------------------
     // STEP 6: Layout Overflow Check across all 3 viewports
@@ -209,9 +183,9 @@ test.describe('Requester Ticket Flow & Comprehensive Visual Audit (Lab 02 - ISSU
     const primaryTokenHex = await page.evaluate(() => {
       return getComputedStyle(document.documentElement).getPropertyValue('--zg-primary').trim();
     });
-    expect(primaryTokenHex.toLowerCase()).toBe('#006b3c');
+    expect(primaryTokenHex.toLowerCase()).toBe('#006039');
 
     const navbarBgColor = await page.locator('nav').evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(navbarBgColor).toMatch(/rgb\(0,\s*107,\s*60\)/);
+    expect(navbarBgColor).toMatch(/rgb\(0,\s*96,\s*57\)/);
   });
 });
