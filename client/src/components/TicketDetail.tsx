@@ -109,8 +109,9 @@ export default function TicketDetail({
     try {
       const data = await fetchPublicComments(ticketId, userId);
       setComments(data);
-    } catch (err: any) {
-      console.error("Failed to load public comments:", err);
+      setCommentError(null);
+    } catch {
+      setCommentError("Public comments could not be loaded. Please try again.");
     }
   }, [ticketId, userId]);
 
@@ -119,8 +120,9 @@ export default function TicketDetail({
     try {
       const data = await fetchInternalNotes(ticketId, userId);
       setInternalNotes(data);
-    } catch (err: any) {
-      console.error("Failed to load internal notes:", err);
+      setInternalNoteError(null);
+    } catch {
+      setInternalNoteError("Internal notes could not be loaded. Please try again.");
     }
   }, [ticketId, userId, isStaffOrAdmin]);
 
@@ -129,8 +131,8 @@ export default function TicketDetail({
     try {
       const users = await fetchRequesters();
       setStaffUsers(users.filter((u) => u.isActive));
-    } catch (err: any) {
-      console.error("Failed to load user list for assignment:", err);
+    } catch {
+      setOpError("The staff list could not be loaded. Assignment controls may be unavailable.");
     }
   }, [isStaffOrAdmin]);
 
@@ -765,6 +767,7 @@ export default function TicketDetail({
               className={`p-4 ${activeTab === "comments" ? "d-block" : "d-none"}`}
               data-testid="public-comments-section"
             >
+              {commentError && <div className="alert alert-warning py-2" role="alert">{commentError}</div>}
               <div className="mb-4">
                 <div className="fw-semibold text-dark small mb-2">Add Public Comment</div>
                 <form onSubmit={handlePostComment} className="d-flex gap-2">
@@ -838,6 +841,7 @@ export default function TicketDetail({
                 className={`p-4 ${activeTab === "notes" ? "d-block" : "d-none"}`}
                 data-testid="internal-notes-section"
               >
+              {internalNoteError && <div className="alert alert-warning py-2" role="alert">{internalNoteError}</div>}
                 <div className="alert alert-warning py-2 mb-3 rounded-2 small d-flex justify-content-between align-items-center">
                   <span>🔒 Operational notes are strictly private to IT Staff & Admin.</span>
                   <span className="badge bg-warning text-dark border">

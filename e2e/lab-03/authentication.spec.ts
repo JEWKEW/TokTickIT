@@ -134,6 +134,7 @@ test.describe('E2E Authentication, Password Management & Role Access (Lab 3)', (
     await page.locator('[data-testid="login-submit-btn"]').click();
 
     await expect(page.locator('[data-testid="app-authenticated"]')).toBeVisible();
+    await page.locator('[data-testid="nav-admin-btn"]').click();
 
     const timestamp = Date.now();
     const tempEmail = `e2e_temp_${timestamp}@toktickit.com`;

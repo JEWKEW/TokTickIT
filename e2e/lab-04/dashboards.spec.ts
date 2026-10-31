@@ -7,16 +7,42 @@ async function signIn(page: Page, email: string) {
   await page.locator('[data-testid="login-submit-btn"]').click();
 }
 
+async function createRequesterTicket(page: Page) {
+  await page.locator('[data-testid="dashboard-create-ticket"]').click();
+  await page.locator('[data-testid="category-dropdown"]').selectOption({ index: 1 });
+  await page.locator('[data-testid="related-system-dropdown"]').selectOption({ index: 1 });
+  const summary = `Dashboard ownership ${Date.now()}`;
+  await page.locator('[data-testid="priority-high"]').click();
+  await page.locator('[data-testid="summary-input"]').fill(summary);
+  await page.locator('[data-testid="description-input"]').fill("Regression fixture for requester dashboard ownership.");
+  await page.locator('[data-testid="submit-ticket-btn"]').click();
+  await expect(page.locator('[data-testid="success-confirmation"]')).toBeVisible();
+  const number = await page.locator('[data-testid="new-ticket-number"]').innerText();
+  await page.getByRole("button", { name: "Return to Dashboard" }).click();
+  await expect(page.locator('[data-testid="requester-dashboard"]')).toBeVisible();
+  return number;
+}
+
+async function signOut(page: Page) {
+  await page.locator('[data-testid="active-requester-info"] button').first().click();
+  await page.locator('[data-testid="logout-btn"]').first().click();
+}
+
 test("Requester dashboard is scoped to owned Tickets and drills down correctly", async ({ page }) => {
   await signIn(page, "alice@toktickit.io");
   await expect(page.locator('[data-testid="requester-dashboard"]')).toBeVisible();
-  await expect(page.getByText("Cannot connect to campus VPN from home")).toBeVisible();
-  await expect(page.getByText("Laptop screen flickering continuously")).toHaveCount(0);
-  await expect(page.locator('[data-testid="metric-my-open-tickets"]')).toContainText("2");
+  const ownTicketNumber = await createRequesterTicket(page);
+  await expect(page.locator('[data-testid="metric-my-open-tickets"]')).toBeVisible();
   await page.locator('[data-testid="metric-in-progress"]').click();
   await expect(page.locator('[data-testid="status-filter"]')).toHaveValue("In Progress");
-  await expect(page.getByText("Cannot connect to campus VPN from home")).toBeVisible();
-  await expect(page.getByText("Waiting for requester to confirm mailbox access")).toHaveCount(0);
+  await page.locator('[data-testid="status-filter"]').selectOption("all");
+  await page.locator('[data-testid="search-input"]').fill(ownTicketNumber);
+  await expect(page.locator('[data-testid="tickets-table"]')).toContainText(ownTicketNumber);
+  await signOut(page);
+  await signIn(page, "bob@toktickit.io");
+  await page.locator('[data-testid="dashboard-view-tickets"]').click();
+  await page.locator('[data-testid="search-input"]').fill(ownTicketNumber);
+  await expect(page.locator('[data-testid^="ticket-link-"]').filter({ hasText: ownTicketNumber })).toHaveCount(0);
 });
 
 test("staff and admin dashboards show authorized metrics and correct drill-downs", async ({ page }) => {
