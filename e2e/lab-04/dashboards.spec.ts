@@ -19,12 +19,29 @@ test("Requester dashboard is scoped to owned Tickets and drills down correctly",
   await expect(page.getByText("Waiting for requester to confirm mailbox access")).toHaveCount(0);
 });
 
-test("staff and admin dashboards show authorized metrics and correct drill-downs", async () => {
-  test.fixme(true, "Implement after Lab 4 dashboards are available");
+test("staff and admin dashboards show authorized metrics and correct drill-downs", async ({ page }) => {
+  await signIn(page, "michael.brown@toktickit.com");
+  await expect(page.locator('[data-testid="staff-dashboard"]')).toBeVisible();
+  await expect(page.locator('[data-testid="staff-metric-new"]')).toBeVisible();
+  await expect(page.locator('[data-testid="staff-status-cancelled"]')).toBeVisible();
+  await page.locator('[data-testid="staff-metric-new"]').click();
+  await expect(page.locator('[data-testid="status-filter-select"]')).toHaveValue("New");
 });
 
-test("dashboard loading, empty, forbidden, and safe-failure states are usable", async () => {
-  test.fixme(true, "Requester dashboard states are covered by component tests; staff dashboard is Issue 8");
+test("Administrator can open staff dashboard with active account totals", async ({ page }) => {
+  await signIn(page, "admin@toktickit.com");
+  await expect(page.locator('[data-testid="staff-dashboard"]')).toBeVisible();
+  await expect(page.locator('[data-testid="staff-active-user-counts"]')).toBeVisible();
+});
+
+test("staff dashboard fits desktop, tablet, and mobile widths", async ({ page }) => {
+  await signIn(page, "michael.brown@toktickit.com");
+  await expect(page.locator('[data-testid="staff-dashboard"]')).toBeVisible();
+  for (const width of [1280, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.evaluate(() => ({ body: document.body.scrollWidth, viewport: document.documentElement.clientWidth }));
+    expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+  }
 });
 
 test("Requester dashboard has no horizontal overflow at desktop, tablet, or mobile widths", async ({ page }) => {

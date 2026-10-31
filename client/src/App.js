@@ -10,6 +10,7 @@ import TicketDetail from "./components/TicketDetail.js";
 import StaffTicketQueue from "./components/StaffTicketQueue.js";
 import UserManagement from "./components/UserManagement.js";
 import RequesterDashboard from "./components/RequesterDashboard.js";
+import StaffDashboard from "./components/StaffDashboard.js";
 export default function App() {
     const [authUser, setAuthUser] = useState(null);
     const [activeRequester, setActiveRequester] = useState(() => {
@@ -43,10 +44,10 @@ export default function App() {
             const user = await getCurrentUser();
             setAuthUser(user);
             if (user.role === "ADMINISTRATOR") {
-                setCurrentView("user-management");
+                setCurrentView("dashboard");
             }
             else if (user.role === "IT_STAFF") {
-                setCurrentView("queue");
+                setCurrentView("dashboard");
             }
             else {
                 setCurrentView("dashboard");
@@ -85,10 +86,10 @@ export default function App() {
     const handleLoginSuccess = (user) => {
         setAuthUser(user);
         if (user.role === "ADMINISTRATOR") {
-            setCurrentView("user-management");
+            setCurrentView("dashboard");
         }
         else if (user.role === "IT_STAFF") {
-            setCurrentView("queue");
+            setCurrentView("dashboard");
         }
         else {
             setCurrentView("dashboard");
@@ -173,13 +174,13 @@ export default function App() {
                             } })) })), isStaff && (_jsx(_Fragment, { children: currentView === "ticket-detail" && selectedTicketId !== null ? (_jsx(TicketDetail, { ticketId: selectedTicketId, userId: effectiveUser.id, userRole: effectiveUser.role, onBack: () => {
                                 setSelectedTicketId(null);
                                 setCurrentView("queue");
-                            } })) : (_jsx(StaffTicketQueue, { userRole: effectiveUser.role, tokenOrUserId: effectiveUser.id, onSelectTicket: (ticketId) => {
+                            } })) : currentView === "dashboard" ? (_jsx(StaffDashboard, { userId: effectiveUser.id, userName: effectiveUser.name, onQueue: (filter) => { sessionStorage.setItem("staffQueueFilter", JSON.stringify(filter || {})); setCurrentView("queue"); }, onCreateTicket: () => setCurrentView("create-ticket"), onSelectTicket: (ticketId) => { setSelectedTicketId(ticketId); setCurrentView("ticket-detail"); } })) : currentView === "create-ticket" ? (_jsx(CreateTicketForm, { userId: effectiveUser.id, onCancel: () => setCurrentView("dashboard") })) : (_jsx(StaffTicketQueue, { userRole: effectiveUser.role, tokenOrUserId: effectiveUser.id, onSelectTicket: (ticketId) => {
                                 setSelectedTicketId(ticketId);
                                 setCurrentView("ticket-detail");
                             } })) })), isAdmin && (_jsx(_Fragment, { children: currentView === "user-management" ? (_jsx(UserManagement, { currentAdminId: effectiveUser.id })) : currentView === "ticket-detail" && selectedTicketId !== null ? (_jsx(TicketDetail, { ticketId: selectedTicketId, userId: effectiveUser.id, userRole: effectiveUser.role, onBack: () => {
                                 setSelectedTicketId(null);
                                 setCurrentView("queue");
-                            } })) : (_jsx(StaffTicketQueue, { userRole: effectiveUser.role, tokenOrUserId: effectiveUser.id, onSelectTicket: (ticketId) => {
+                            } })) : currentView === "dashboard" ? (_jsx(StaffDashboard, { userId: effectiveUser.id, userName: effectiveUser.name, onQueue: (filter) => { sessionStorage.setItem("staffQueueFilter", JSON.stringify(filter || {})); setCurrentView("queue"); }, onCreateTicket: () => setCurrentView("create-ticket"), onSelectTicket: (ticketId) => { setSelectedTicketId(ticketId); setCurrentView("ticket-detail"); } })) : currentView === "create-ticket" ? (_jsx(CreateTicketForm, { userId: effectiveUser.id, onCancel: () => setCurrentView("dashboard") })) : (_jsx(StaffTicketQueue, { userRole: effectiveUser.role, tokenOrUserId: effectiveUser.id, onSelectTicket: (ticketId) => {
                                 setSelectedTicketId(ticketId);
                                 setCurrentView("ticket-detail");
                             } })) })), _jsx("div", { className: "container pb-5 mt-4 d-none", style: { maxWidth: 768 }, children: _jsxs("div", { className: "card shadow-sm p-4 border-0 mb-4 bg-white rounded-3", children: [_jsx("div", { className: "d-flex justify-content-between align-items-center mb-3", children: _jsxs("div", { children: [_jsx("h2", { className: "h6 text-zen-green mb-1 fw-bold", children: "System Diagnostics" }), _jsxs("p", { className: "text-muted small mb-0", children: ["Authenticated User: ", _jsx("strong", { children: effectiveUser.name }), " (", effectiveUser.email, ") \u2022 Role: ", _jsx("strong", { children: effectiveUser.role })] })] }) }), _jsxs("div", { className: "border-top pt-3", children: [_jsx("button", { className: "btn btn-outline-success btn-sm mb-2 fw-medium", onClick: handleCheckSystem, disabled: diagState === "loading", "data-testid": "check-system-btn", children: diagState === "loading" ? "Loading…" : "Check System" }), diagState === "loading" && _jsx("div", { className: "mt-3 text-muted", children: "Loading\u2026" }), diagState === "success" && (_jsxs("div", { className: "mt-3", children: [_jsx("div", { className: "alert alert-success py-2 px-3 small", children: "System Status: Online" }), _jsxs("div", { className: "mt-2", children: [_jsx("h3", { className: "h6 fw-bold small", children: "Supported Request Categories:" }), _jsx("ol", { className: "list-group list-group-numbered mt-1 small", children: categories.map((category) => (_jsx("li", { className: "list-group-item py-1", children: category.name }, category.id))) })] })] })), diagState === "error" && (_jsxs("div", { className: "mt-3 alert alert-danger py-2 px-3 small", children: [_jsx("div", { children: "System Status: Offline" }), _jsx("div", { className: "mt-1", children: diagError })] }))] })] }) })] })] }));

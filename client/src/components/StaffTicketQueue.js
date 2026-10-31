@@ -16,10 +16,18 @@ export default function StaffTicketQueue({ userId, tokenOrUserId, userRole, onSe
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     // Filters state
-    const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [priorityFilter, setPriorityFilter] = useState("all");
-    const [ownerFilter, setOwnerFilter] = useState("all");
+    const initialDashboardFilter = (() => {
+        try {
+            return JSON.parse(sessionStorage.getItem("staffQueueFilter") || "{}");
+        }
+        catch {
+            return {};
+        }
+    })();
+    const [search, setSearch] = useState(initialDashboardFilter.search || "");
+    const [statusFilter, setStatusFilter] = useState(initialDashboardFilter.status || "all");
+    const [priorityFilter, setPriorityFilter] = useState(initialDashboardFilter.itPriority || "all");
+    const [ownerFilter, setOwnerFilter] = useState(initialDashboardFilter.ownerId || "all");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [sortBy, setSortBy] = useState("createdAt");
     const [sortOrder, setSortOrder] = useState("desc");
