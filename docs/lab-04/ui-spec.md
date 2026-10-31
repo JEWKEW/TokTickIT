@@ -158,6 +158,8 @@ Rendered in the Ticket Detail header panel.
 
 This checklist is used during visual polish and accessibility verification (Issue 10):
 
+The completed Issue 10 results and test evidence are recorded in the [Accessibility and Responsive Verification checklist](accessibility-responsive-checklist.md).
+
 | Visual & Accessibility Item | Desktop Standard | Tablet Standard | Mobile Standard | Pass / Fail Criteria |
 | :--- | :--- | :--- | :--- | :--- |
 | **Zen Green Token Consistency** | Deep Forest Green header, soft card backgrounds | Identical design tokens | Identical design tokens | Color values match CSS variables exactly |

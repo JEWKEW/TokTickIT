@@ -105,4 +105,8 @@ e2e/lab-04/
 
 ## Final Results
 
+### Local Issue 10 Accessibility and Responsive Run
+
+The completed checks and local test evidence are recorded in [`accessibility-responsive-checklist.md`](accessibility-responsive-checklist.md). These local runs do not change the **Final** column below: it remains Pending until the complete planned suite has run on integrated `main`.
+
 Fill each table row's **Final** column with `Pass` or `Fail` only after running the complete planned suite on the integrated `main` branch. Attach the full command output and environment/commit identifier to Answer Part 3. If a planned test is intentionally deferred, state why and do not report it as passing.
