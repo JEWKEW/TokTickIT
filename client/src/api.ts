@@ -110,28 +110,6 @@ export async function updateActionTaken(ticketId: number, actionId: number, inpu
   return data.data;
 }
 
-export interface SystemStatus {
-  online: boolean;
-  categories: Category[];
-}
-
-export async function checkSystem(): Promise<SystemStatus> {
-  try {
-    const healthRes = await fetch(`${API_URL}/api/health`);
-    if (!healthRes.ok) {
-      throw new Error("Unable to connect to TokTickIT API");
-    }
-    const categoriesRes = await fetch(`${API_URL}/api/categories`);
-    if (!categoriesRes.ok) {
-      throw new Error("Unable to connect to TokTickIT API");
-    }
-    const categories: Category[] = await categoriesRes.json();
-    return { online: true, categories };
-  } catch (error) {
-    throw new Error("Unable to connect to TokTickIT API");
-  }
-}
-
 export interface Requester {
   id: number;
   name: string;

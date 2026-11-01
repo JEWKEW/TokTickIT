@@ -33,23 +33,6 @@ export async function updateActionTaken(ticketId, actionId, input, expectedUpdat
     }
     return data.data;
 }
-export async function checkSystem() {
-    try {
-        const healthRes = await fetch(`${API_URL}/api/health`);
-        if (!healthRes.ok) {
-            throw new Error("Unable to connect to TokTickIT API");
-        }
-        const categoriesRes = await fetch(`${API_URL}/api/categories`);
-        if (!categoriesRes.ok) {
-            throw new Error("Unable to connect to TokTickIT API");
-        }
-        const categories = await categoriesRes.json();
-        return { online: true, categories };
-    }
-    catch (error) {
-        throw new Error("Unable to connect to TokTickIT API");
-    }
-}
 export async function fetchRequesters() {
     try {
         const res = await fetch(`${API_URL}/api/requesters`);

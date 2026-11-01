@@ -2,7 +2,7 @@ import { test, expect, Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 
-const SCREENSHOT_DIR = path.resolve('artifacts/lab-02/screenshots');
+const SCREENSHOT_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-02/screenshots');
 
 // Ensure screenshots directory exists
 if (!fs.existsSync(SCREENSHOT_DIR)) {
@@ -39,7 +39,9 @@ test.describe('Requester Ticket Flow & Responsive Audit', () => {
     await page.locator('[data-testid="login-password-input"]').fill('Password123!');
     await page.locator('[data-testid="login-submit-btn"]').click();
     await expect(page.locator('[data-testid="active-requester-info"]')).toBeVisible();
+    await page.locator('[data-testid="active-requester-info"] button').first().click();
     await expect(page.locator('[data-testid="active-requester-name"]')).toContainText('Alice Johnson');
+    await page.locator('[data-testid="active-requester-info"] button').first().click();
 
     // -------------------------------------------------------------------------
     // PAGE 2: Create Ticket Form Screen
@@ -170,6 +172,7 @@ test.describe('Requester Ticket Flow & Responsive Audit', () => {
     await page.locator('[data-testid="login-email-input"]').fill('bob@toktickit.io');
     await page.locator('[data-testid="login-password-input"]').fill('Password123!');
     await page.locator('[data-testid="login-submit-btn"]').click();
+    await page.locator('[data-testid="active-requester-info"] button').first().click();
     await expect(page.locator('[data-testid="active-requester-name"]')).toContainText('Bob Smith');
 
     await page.locator('[data-testid="dashboard-view-tickets"]').click();

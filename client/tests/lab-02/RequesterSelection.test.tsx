@@ -74,7 +74,7 @@ describe("Lab 02 - Dev Requester Context & Selection UI", () => {
   });
 
   describe("Navbar Component", () => {
-    it("renders brand logo and active requester name with Change Requester button", () => {
+    it("shows requester details and Change Requester in the accessible profile menu", async () => {
       const handleChange = vi.fn();
       const activeUser: api.Requester = {
         id: 1,
@@ -88,6 +88,7 @@ describe("Lab 02 - Dev Requester Context & Selection UI", () => {
       );
 
       expect(screen.getByText(/TokTickIT/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Profile menu for Alice Johnson" }));
       expect(screen.getByTestId("active-requester-name")).toHaveTextContent(
         "Alice Johnson"
       );
