@@ -21,6 +21,8 @@ This checklist records local Issue 10 verification against the Lab 4 handout. Br
 - Client suite: 32 test files, 156 passed.
 - Lab 4 accessibility/responsive browser suite: 10 passed.
 - Requester Ticket Flow browser test, including the attachment dialog focus checks: 1 passed.
+- Full Chromium browser regression suite across Labs 2–4: 18 passed. Legacy screenshot output is routed into `artifacts/lab-04/screenshots/regression/`.
 - Client TypeScript and production build: passed.
+- Server TypeScript build: passed; server test suite: 301 passed, 1 opt-in migration integration test skipped because no disposable migration-test URL was configured.
 
 The full planned Lab 4 regression suite still needs to run on integrated `main`; the **Final** columns in `tests.md` remain Pending until that requirement is met.

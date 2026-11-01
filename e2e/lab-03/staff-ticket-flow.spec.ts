@@ -13,9 +13,9 @@ import fs from 'fs';
  *  - AC-09: Public comments and internal notes operational workflows for IT Staff
  */
 
-const STAFF_QUEUE_DIR = path.resolve('artifacts/lab-03/screenshots/staff-queue');
-const STAFF_DETAIL_DIR = path.resolve('artifacts/lab-03/screenshots/staff-ticket-detail');
-const REQUESTER_DIR = path.resolve('artifacts/lab-03/screenshots/requester');
+const STAFF_QUEUE_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/staff-queue');
+const STAFF_DETAIL_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/staff-ticket-detail');
+const REQUESTER_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/requester');
 
 [STAFF_QUEUE_DIR, STAFF_DETAIL_DIR, REQUESTER_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) {

@@ -1,7 +1,7 @@
 # 🎫 TokTickIT — IT Service Desk Platform
 
 ![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
-![Build Status](https://img.shields.io/badge/local%20tests-474%20passed-brightgreen.svg)
+![Lab](https://img.shields.io/badge/coursework-Lab%2004-006039.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?logo=node.js)
 ![React](https://img.shields.io/badge/React-18.x-61dafb?logo=react)
@@ -13,7 +13,7 @@
 ![Playwright](https://img.shields.io/badge/Playwright-E2E-2EAD33?logo=playwright)
 ![Design System](https://img.shields.io/badge/Design%20System-Zen%20Green%20%23006B3C-006B3C)
 
-**TokTickIT** is an IT Service Desk ticketing platform. Labs 1–3 provide authenticated, role-based Requester, IT Staff, and Administrator workflows. Lab 4 adds Actions Taken work history, Ticket resolution signals and transitions, role-specific dashboards, dashboard APIs, and regression coverage while preserving ownership and access controls.
+**TokTickIT** is an IT Service Desk ticketing platform. Labs 1–3 provide authenticated, role-based Requester, IT Staff, and Administrator workflows. Lab 4 adds Actions Taken work history, Ticket resolution signals and transitions, role-specific dashboards, dashboard APIs, and regression coverage while preserving ownership and access controls. See [`docs/lab-04/`](docs/lab-04/) for the Lab 4 contract and evidence; test-plan Final statuses remain pending until verified on integrated `main`.
 
 ---
 
@@ -32,6 +32,7 @@
   - [Running Backend & Frontend](#running-backend--frontend)
 - [REST API Contract Reference](#-rest-api-contract-reference)
 - [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Demonstrating Lab 4](#demonstrating-lab-4)
 - [Project Directory Structure](#-project-directory-structure)
 - [Documentation & Lab Deliverables](#-documentation--lab-deliverables)
 - [Peer Review & AI Reflection](#-peer-review--ai-reflection)
@@ -249,9 +250,13 @@ erDiagram
 - Generated responsive visual audit screenshots across Desktop (1280px), Tablet (768px), and Mobile (375px) saved under `artifacts/lab-03/screenshots/`.
 
 ### ISSUE-09: Integration & Peer Review
-- Lab 4 regression coverage exercises authentication, Ticket ownership and details, attachments, comments, staff workflows, internal notes, dashboards, and Administrator user management.
-- Added the health endpoint and an opt-in dashboard performance smoke for a disposable local test database. See [Testing & Quality Assurance](#-testing--quality-assurance).
-- Lab 4 changes and test evidence are local; staging/main integration and peer review are tracked separately.
+- Lab 3 regression coverage exercises authentication, Ticket ownership and details, attachments, comments, staff workflows, internal notes, and Administrator user management.
+
+### LAB 4: Actions Taken, workflow, and operational dashboards
+- Adds per-Ticket Actions Taken with automatic performer attribution, follow-up validation, editable notes, and stale-update conflict handling.
+- Adds documented Ticket workflow rules, Requester advisory resolution, and role-scoped Requester and Staff/Admin dashboard metrics with drill-downs.
+- Preserves the existing Labs 1–3 features and authorization rules; Lab 4 requirements and API/UI contracts are in [`docs/lab-04/`](docs/lab-04/).
+- The release test plan keeps Final statuses pending until the full suite is verified on integrated `main`.
 
 ---
 
@@ -300,40 +305,57 @@ TokTickIT uses a custom **Zen Green** design system paired with warm amber accen
 ### Environment Configuration
 
 #### Backend Environment (`server/.env`)
-Create `server/.env` with the following configuration:
+Copy `server/.env.example` to `server/.env`. Adjust the local PostgreSQL credentials if needed:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/toktickit_db?schema=public"
+DATABASE_URL="postgresql://toktickit:toktickit@localhost:5432/toktickit?schema=public"
 PORT=3000
-NODE_ENV=development
-JWT_SECRET="toktickit_super_secret_jwt_key_2026"
 ```
+
+The checked-in example is for local development only. Keep real environment values in the ignored `.env` file.
 
 ---
 
 ### Database Setup & Seeding
 
-1. Navigate to the `server` directory:
-   ```bash
-   cd server
-   ```
-
-2. Install backend dependencies:
+1. From the repository root, install the three dependency sets:
    ```bash
    npm install
+   npm --prefix server install
+   npm --prefix client install
    ```
 
-3. Run Prisma database migrations:
+2. Start the local PostgreSQL service using Docker Compose, or use a local PostgreSQL 15+ instance. The Compose file uses the same credentials as `.env.example`:
    ```bash
+   docker compose -f server/docker-compose.yml up -d postgres
+   ```
+
+3. Copy the environment template, then apply committed migrations and seed development data:
+   ```powershell
+   Copy-Item server/.env.example server/.env
+   ```
+   On macOS/Linux, use `cp server/.env.example server/.env`. Then run:
+   ```bash
+   cd server
    npx prisma migrate deploy
-   ```
-   Use `npm run prisma:migrate` only when creating or editing a migration during development. For a disposable test database, set `LAB4_MIGRATION_TEST_DATABASE_URL` to a local database whose name contains `test` or `lab4` before running the isolated migration test.
-
-4. Execute database seeding:
-   ```bash
    npm run prisma:seed
    ```
-   *Populates seed categories, related systems, active/inactive users across all 3 roles, Tickets in all eight statuses, and representative Actions Taken for dashboard and workflow examples. Seed runs are repeatable.*
+
+   Use `npm run prisma:migrate` only when creating or editing a migration during development. The seed is repeatable. For the isolated migration test, set `LAB4_MIGRATION_TEST_DATABASE_URL` to a disposable local database whose name contains `test` or `lab4`.
+
+4. Start the server and client in separate terminals:
+   ```bash
+   # terminal 1
+   cd server && npm run dev
+   # terminal 2
+   cd client && npm run dev
+   ```
+   The API is at `http://localhost:3000`; Vite serves the UI at `http://localhost:5173`.
+
+5. For browser tests, install Chromium once from the repository root:
+   ```bash
+   npx playwright install chromium
+   ```
 
 ---
 
@@ -428,7 +450,7 @@ All protected endpoints require the `Authorization: Bearer <token>` HTTP header.
 
 ## 🧪 Testing & Quality Assurance
 
-Run the suites from their respective directories after applying migrations and seeding a local development database.
+Run tests from their respective directories. API and UI tests use fixtures/mocks; browser tests need the running app and a seeded local database.
 
 ### Server tests and build
 
@@ -438,7 +460,7 @@ npm test
 npm run build
 ```
 
-The server suite covers earlier Labs 1–3 behavior and Lab 4 Actions Taken, Ticket workflow, dashboards, and migration checks. The database migration integration test runs only when `LAB4_MIGRATION_TEST_DATABASE_URL` points to a local disposable database with `test` or `lab4` in its name; otherwise that integration case is skipped.
+The server suite covers earlier Labs 1–3 behavior and Lab 4 Actions Taken, Ticket workflow, dashboards, and migration checks. The database migration integration test runs only when `LAB4_MIGRATION_TEST_DATABASE_URL` points to a local disposable database with `test` or `lab4` in its name; otherwise that integration case is skipped. The dashboard performance smoke is documented in [`docs/lab-04/tests.md`](docs/lab-04/tests.md) and should only use a disposable local database.
 
 Run the required dashboard performance smoke against a disposable local test database (it creates and removes a temporary schema and requires Prisma migrations to deploy):
 
@@ -467,7 +489,17 @@ Start the server and client in separate terminals, then run from the repository 
 npx playwright test
 ```
 
-Playwright uses `http://localhost:5173` and the server at `http://localhost:3000`. Use a seeded local database. The suite includes role-based authentication, Ticket workflows, dashboard drill-downs, and responsive dashboard checks at 1280px, 768px, and 375px.
+Playwright uses `http://localhost:5173` and the server at `http://localhost:3000`. Use a seeded local database. Run the Lab 4 browser tests with `npx playwright test e2e/lab-04`; run the complete browser regression suite with `npx playwright test`. Responsive checks cover 1280px desktop, 768px tablet, and 375px mobile. Screenshots and other Lab 4 visual evidence belong under `artifacts/lab-04/`.
+
+### Demonstrating Lab 4
+
+1. Sign in as `michael.brown@toktickit.com` or `alice@toktickit.io` using the local seed password `Password123!`.
+2. Show the role-appropriate dashboard. Staff/Admin metrics open filtered Ticket views; Requester metrics and recent Tickets are scoped to the signed-in Requester.
+3. Open a Ticket and select **Actions Taken**. Demonstrate the staff record/edit form or the Requester read-only history. The seed includes examples with and without follow-up notes.
+4. As IT Staff, demonstrate permitted Ticket status transitions and the Requester advisory resolution signal without using it as a formal status change.
+5. Review screenshots under [`artifacts/lab-04/screenshots/`](artifacts/lab-04/screenshots/) and test traceability in [`docs/lab-04/tests.md`](docs/lab-04/tests.md).
+
+These are development seed credentials. Do not reuse them outside a local demo environment.
 
 ### Health check
 
@@ -483,11 +515,11 @@ Expected response: `{"status":"ok","service":"TokTickIT API"}`.
 
 ```text
 TokTickIT/
-├── artifacts/                     # Visual audit screenshots
-│   ├── lab-03/
-│       └── screenshots/           # Authentication, Staff Queue, Staff Detail, User Admin screenshots
+├── artifacts/
+│   ├── lab-03/screenshots/         # Lab 3 visual evidence
 │   └── lab-04/
-│       └── screenshots/           # Requester/Staff dashboards and Actions Taken
+│       ├── screenshots/           # Lab 4 dashboards, Actions Taken, regression evidence
+│       └── submission.pdf         # Concise nine-part submission
 ├── client/                        # Frontend React Application
 │   ├── public/                    # Static assets
 │   ├── src/
@@ -496,7 +528,7 @@ TokTickIT/
 │   │   ├── index.css              # Zen Green design system & warm amber notes styles
 │   │   ├── components/            # UI components (Login, ChangePassword, StaffQueue, UserMgmt, etc.)
 │   │   └── pages/                 # Page components
-│   └── tests/lab-03/              # React component test suites (Vitest + RTL)
+│   └── tests/lab-04/              # React dashboard, Actions Taken, workflow tests
 ├── server/                        # Backend Express REST API
 │   ├── prisma/
 │   │   ├── schema.prisma          # PostgreSQL Prisma schema (User, Ticket, Comment, Note, etc.)
@@ -506,30 +538,28 @@ TokTickIT/
 │   │   ├── app.ts                 # Express app, routes, & RBAC middleware
 │   │   ├── auth.ts                # JWT authentication utility & password hashing
 │   │   └── index.ts               # Server entrypoint
-│   └── tests/lab-03/              # Supertest integration API test suites
+│   └── tests/lab-04/              # API, workflow, dashboard, and migration tests
 ├── docs/                          # Project documentation
 │   ├── lab-01/                    # Lab 01 deliverables
 │   ├── lab-02/                    # Lab 02 deliverables
-│   └── lab-03/                    # Lab 03 deliverables
-│       ├── specification.md       # Full Lab 03 specification & BRs
-│       ├── api-spec.md            # REST API contract specification
-│       ├── ui-spec.md             # Zen Green design system & UI specification
-│       ├── tests.md               # Test plan & Given-When-Then AC matrix
-│       ├── reviewer.md            # Peer review record & approvals
-│       ├── ai-use.md              # AI pair programming log & reflection
-│       └── Lab3_Requirements_Checklist.md # Sprint checklist & coverage tracking
+│   ├── lab-03/                    # Lab 3 deliverables
+│   └── lab-04/
+│       ├── specification.md       # Lab 4 scope, rules, ACs, and DoD
+│       ├── api-spec.md             # Lab 4 REST API contracts
+│       ├── ui-spec.md              # Lab 4 screen and visual rules
+│       ├── tests.md                # Test plan and AC traceability
+│       ├── reviewer.md             # Lab 4 peer-review record
+│       └── ai-use.md               # Lab 4 prompt selections and reflection
 └── e2e/                           # Playwright end-to-end test suite
-    └── lab-03/
-        ├── authentication.spec.ts
-        ├── staff-ticket-flow.spec.ts
-        └── user-administration.spec.ts
+    ├── lab-03/                    # Lab 3 regression scenarios
+    └── lab-04/                    # Dashboards, Actions Taken, Ticket workflow
 ```
 
 ---
 
 ## 📄 Documentation & Lab Deliverables
 
-All required Lab 03 deliverables are documented under `docs/lab-03/`:
+Lab 3 deliverables are documented under `docs/lab-03/`. Lab 4 deliverables are documented under `docs/lab-04/`:
 
 - 📜 [**System Specification (`specification.md`)**](file:///d:/TokTickIT/docs/lab-03/specification.md): System scope, functional requirements (FR-01 to FR-12), business rules (BR-01 to BR-18), and RBAC matrix.
 - 🔌 [**REST API Specification (`api-spec.md`)**](file:///d:/TokTickIT/docs/lab-03/api-spec.md): Full REST API endpoint contracts, request/response JSON schemas, and authorization rules.
@@ -539,12 +569,21 @@ All required Lab 03 deliverables are documented under `docs/lab-03/`:
 - 🤖 [**AI Use & Reflection (`ai-use.md`)**](file:///d:/TokTickIT/docs/lab-03/ai-use.md): AI pair programming log, prompt history, and reflection on AI assistance.
 - ✅ [**Requirements Checklist (`Lab3_Requirements_Checklist.md`)**](file:///d:/TokTickIT/docs/lab-03/Lab3_Requirements_Checklist.md): Step-by-step checklist verifying completion of all Lab 03 features and deliverables.
 
-Lab 4 visual evidence is saved under `artifacts/lab-04/screenshots/`: dashboard screenshots at desktop, tablet, and mobile widths; the IT Staff Actions Taken view; a Staff Ticket Queue sample showing varied Requested and IT Priority values; and regression screenshots collected under `screenshots/regression/`.
+Lab 4 documentation:
+
+- [Specification](docs/lab-04/specification.md), [API specification](docs/lab-04/api-spec.md), and [UI specification](docs/lab-04/ui-spec.md)
+- [Test plan and acceptance-criterion traceability](docs/lab-04/tests.md)
+- [Peer review record](docs/lab-04/reviewer.md) and [AI use with reflection](docs/lab-04/ai-use.md)
+- [Accessibility and responsive checklist](docs/lab-04/accessibility-responsive-checklist.md)
+- [Submission PDF](artifacts/lab-04/submission.pdf)
+
+Visual evidence is stored in `artifacts/lab-04/screenshots/`, organized by role/screen and regression lab. See the reviewer record for release evidence status; earlier-lab approvals do not establish Lab 4 approval.
 
 ---
 
 ## 🤝 Peer Review & AI Reflection
 
 - **Author:** Yotsapoom Liupolvanish (`67070503493`) — GitHub: [@JEWKEW](https://github.com/JEWKEW)
-- **Peer Reviewer:** Chaiyaphoom Chenchirotphiphat (`67070503410`) — GitHub: [@maneejames](https://github.com/maneejames)
+- **Peer Reviewer:** See the Lab 4 peer-review record; do not infer Lab 4 approval from earlier labs.
 - **AI Pair Assistant:** Gemini 3.6 Flash (Antigravity AI Assistant)
+Lab 4 AI prompt selections and reflection are in [`docs/lab-04/ai-use.md`](docs/lab-04/ai-use.md).

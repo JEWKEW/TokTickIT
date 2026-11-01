@@ -11,7 +11,7 @@ import fs from 'fs';
  *  - AC-12: Duplicate email address validation & rejection
  */
 
-const USER_MGMT_DIR = path.resolve('artifacts/lab-03/screenshots/user-management');
+const USER_MGMT_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/user-management');
 
 if (!fs.existsSync(USER_MGMT_DIR)) {
   fs.mkdirSync(USER_MGMT_DIR, { recursive: true });
