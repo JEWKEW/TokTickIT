@@ -550,7 +550,7 @@ export default function TicketDetail({
                     data-testid="ticket-priority"
                   >
                     {ticket.requestedPriority}
-                    <span className="d-none"> Priority</span>
+                    <span className="visually-hidden"> Priority</span>
                   </span>
                 </div>
               </div>

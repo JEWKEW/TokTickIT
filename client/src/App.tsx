@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getCurrentUser, logout, AuthUser, Category, Requester, checkSystem } from "./api.js";
+import { getCurrentUser, logout, AuthUser, Requester } from "./api.js";
 import Navbar from "./components/Navbar.js";
 import Login from "./components/Login.js";
 import ChangePassword from "./components/ChangePassword.js";
@@ -10,8 +10,6 @@ import StaffTicketQueue from "./components/StaffTicketQueue.js";
 import UserManagement from "./components/UserManagement.js";
 import RequesterDashboard from "./components/RequesterDashboard.js";
 import StaffDashboard from "./components/StaffDashboard.js";
-
-type UiState = "idle" | "loading" | "success" | "error";
 
 export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -32,10 +30,6 @@ export default function App() {
 
   const [currentView, setCurrentView] = useState<string>("dashboard");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
-
-  const [diagState, setDiagState] = useState<UiState>("idle");
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [diagError, setDiagError] = useState<string>("");
 
   const checkAuth = useCallback(async () => {
     const hasToken = Boolean(sessionStorage.getItem("token") || localStorage.getItem("token"));
@@ -94,21 +88,6 @@ export default function App() {
     }
   };
 
-  const handleSelectDevRequester = (requester: Requester) => {
-    setActiveRequester(requester);
-    sessionStorage.setItem("selectedRequester", JSON.stringify(requester));
-    sessionStorage.setItem("x-user-id", requester.id.toString());
-    setAuthUser({
-      id: requester.id,
-      name: requester.name,
-      email: requester.email,
-      role: "REQUESTER",
-      mustChangePassword: false,
-      isActive: true,
-    });
-    setCurrentView("dashboard");
-  };
-
   const handleLogout = async () => {
     sessionStorage.removeItem("selectedRequester");
     sessionStorage.removeItem("x-user-id");
@@ -120,19 +99,6 @@ export default function App() {
     setCurrentView("dashboard");
     await logout();
   };
-
-  async function handleCheckSystem() {
-    setDiagState("loading");
-    setDiagError("");
-    try {
-      const status = await checkSystem();
-      setCategories(status.categories);
-      setDiagState("success");
-    } catch (err: any) {
-      setDiagError(err.message || "Unable to connect to TokTickIT API");
-      setDiagState("error");
-    }
-  }
 
   if (loadingAuth) {
     return (
@@ -151,7 +117,6 @@ export default function App() {
     return (
       <Login
         onSuccess={handleLoginSuccess}
-        onSelectDevRequester={handleSelectDevRequester}
       />
     );
   }
@@ -180,7 +145,6 @@ export default function App() {
     return (
       <Login
         onSuccess={handleLoginSuccess}
-        onSelectDevRequester={handleSelectDevRequester}
       />
     );
   }
@@ -316,55 +280,6 @@ export default function App() {
           </>
         )}
 
-        {/* System Diagnostics Footer */}
-        <div className="container pb-5 mt-4 d-none" style={{ maxWidth: 768 }}>
-          <div className="card shadow-sm p-4 border-0 mb-4 bg-white rounded-3">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <h2 className="h6 text-zen-green mb-1 fw-bold">System Diagnostics</h2>
-                <p className="text-muted small mb-0">
-                  Authenticated User: <strong>{effectiveUser.name}</strong> ({effectiveUser.email}) &bull; Role: <strong>{effectiveUser.role}</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="border-top pt-3">
-              <button
-                className="btn btn-outline-success btn-sm mb-2 fw-medium"
-                onClick={handleCheckSystem}
-                disabled={diagState === "loading"}
-                data-testid="check-system-btn"
-              >
-                {diagState === "loading" ? "Loading…" : "Check System"}
-              </button>
-
-              {diagState === "loading" && <div className="mt-3 text-muted">Loading…</div>}
-
-              {diagState === "success" && (
-                <div className="mt-3">
-                  <div className="alert alert-success py-2 px-3 small">System Status: Online</div>
-                  <div className="mt-2">
-                    <h3 className="h6 fw-bold small">Supported Request Categories:</h3>
-                    <ol className="list-group list-group-numbered mt-1 small">
-                      {categories.map((category) => (
-                        <li key={category.id} className="list-group-item py-1">
-                          {category.name}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-
-              {diagState === "error" && (
-                <div className="mt-3 alert alert-danger py-2 px-3 small">
-                  <div>System Status: Offline</div>
-                  <div className="mt-1">{diagError}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   );

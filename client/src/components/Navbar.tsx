@@ -111,6 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("create-ticket")}
                     data-testid="nav-create-ticket-btn"
+                    aria-current={currentView === "create-ticket" ? "page" : undefined}
                   >
                     <span>⊕</span>
                     <span>Create Ticket</span>
@@ -133,6 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("queue")}
                     data-testid="nav-queue-btn"
+                    aria-current={currentView === "queue" ? "page" : undefined}
                   >
                     <span>📄</span>
                     <span>Ticket Queue</span>
@@ -149,6 +151,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("create-ticket")}
                     data-testid="nav-create-ticket-btn"
+                    aria-current={currentView === "create-ticket" ? "page" : undefined}
                   >
                     <span>⊕</span>
                     <span>Create Ticket</span>
@@ -171,6 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("user-management")}
                     data-testid="nav-admin-btn"
+                    aria-current={currentView === "user-management" ? "page" : undefined}
                   >
                     <span>💻</span>
                     <span>Admin</span>
@@ -187,6 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("queue")}
                     data-testid="nav-queue-btn"
+                    aria-current={currentView === "queue" ? "page" : undefined}
                   >
                     <span>📄</span>
                     <span>Ticket Queue</span>
@@ -205,6 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="btn btn-sm text-white d-flex align-items-center gap-2 border-0 py-1 px-2"
               onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
               aria-expanded={profileDropdownOpen}
+              aria-label={`Profile menu for ${user.name}`}
             >
               <div
                 className="rounded-circle d-flex align-items-center justify-content-center bg-white text-zen-green fw-bold"
@@ -248,19 +254,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Hidden fallback elements for test suite compatibility */}
-            <div className="d-none">
-              <span data-testid="active-requester-name">{user.name}</span>
-              <span data-testid="active-user-role">{getRoleLabel(role)}</span>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                data-testid={activeRequester ? "change-requester-btn" : "logout-btn"}
-              >
-                Sign Out
-              </button>
-            </div>
           </div>
         )}
       </div>

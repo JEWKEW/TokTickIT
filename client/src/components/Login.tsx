@@ -3,7 +3,6 @@ import { login, AuthUser } from "../api.js";
 
 interface LoginProps {
   onSuccess: (user: AuthUser, token?: string) => void;
-  onSelectDevRequester?: (requester: any) => void;
 }
 
 export default function Login({ onSuccess }: LoginProps) {
@@ -152,19 +151,9 @@ export default function Login({ onSuccess }: LoginProps) {
               )}
             </button>
 
-            <div className="text-center">
-              <a
-                href="#forgot"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert("Please contact your system Administrator to reset your password.");
-                }}
-                className="small text-zen-green text-decoration-none fw-medium"
-                data-testid="forgot-password-link"
-              >
-                Forgot your password?
-              </a>
-            </div>
+            <p className="text-center text-muted small mb-0">
+              Need a password reset? Contact your system Administrator.
+            </p>
           </form>
         </div>
       </main>
