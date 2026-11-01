@@ -55,8 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={(e) => {
               e.preventDefault();
               if (onNavigate) {
-                if (isAdmin) onNavigate("user-management");
-                else if (isStaff) onNavigate("queue");
+                if (isAdmin || isStaff) onNavigate("dashboard");
                 else onNavigate("dashboard");
               }
             }}
@@ -86,15 +85,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     type="button"
                     className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${
-                      currentView === "dashboard"
+                      currentView === "dashboard" || currentView === "my-tickets"
                         ? "fw-semibold"
                         : "opacity-85 hover-opacity-100"
                     }`}
                     style={{
-                      backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent",
+                      backgroundColor: currentView === "dashboard" || currentView === "my-tickets" ? "rgba(255, 255, 255, 0.18)" : "transparent",
                     }}
                     onClick={() => onNavigate("dashboard")}
                     data-testid="nav-dashboard-btn"
+                    aria-current={currentView === "dashboard" || currentView === "my-tickets" ? "page" : undefined}
                   >
                     <span>📄</span>
                     <span>My Tickets</span>
@@ -111,6 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("create-ticket")}
                     data-testid="nav-create-ticket-btn"
+                    aria-current={currentView === "create-ticket" ? "page" : undefined}
                   >
                     <span>⊕</span>
                     <span>Create Ticket</span>
@@ -120,21 +121,23 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {isStaff && (
                 <>
+                  <button type="button" className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "dashboard" ? "fw-semibold" : "opacity-85 hover-opacity-100"}`} style={{ backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent" }} onClick={() => onNavigate("dashboard")} data-testid="nav-staff-dashboard-btn" aria-current={currentView === "dashboard" ? "page" : undefined}><span>▦</span><span>Dashboard</span></button>
                   <button
                     type="button"
                     className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${
-                      currentView === "queue" || currentView === "dashboard"
+                      currentView === "queue"
                         ? "fw-semibold"
                         : "opacity-85 hover-opacity-100"
                     }`}
                     style={{
-                      backgroundColor: currentView === "queue" || currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent",
+                      backgroundColor: currentView === "queue" ? "rgba(255, 255, 255, 0.18)" : "transparent",
                     }}
                     onClick={() => onNavigate("queue")}
                     data-testid="nav-queue-btn"
+                    aria-current={currentView === "queue" ? "page" : undefined}
                   >
                     <span>📄</span>
-                    <span>My Queue</span>
+                    <span>Ticket Queue</span>
                   </button>
                   <button
                     type="button"
@@ -148,6 +151,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("create-ticket")}
                     data-testid="nav-create-ticket-btn"
+                    aria-current={currentView === "create-ticket" ? "page" : undefined}
                   >
                     <span>⊕</span>
                     <span>Create Ticket</span>
@@ -157,6 +161,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {isAdmin && (
                 <>
+                  <button type="button" className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${currentView === "dashboard" ? "fw-semibold" : "opacity-85 hover-opacity-100"}`} style={{ backgroundColor: currentView === "dashboard" ? "rgba(255, 255, 255, 0.18)" : "transparent" }} onClick={() => onNavigate("dashboard")} data-testid="nav-staff-dashboard-btn" aria-current={currentView === "dashboard" ? "page" : undefined}><span>▦</span><span>Dashboard</span></button>
                   <button
                     type="button"
                     className={`btn btn-sm d-flex align-items-center gap-1.5 border-0 px-2.5 py-1 text-white rounded-2 ${
@@ -169,6 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("user-management")}
                     data-testid="nav-admin-btn"
+                    aria-current={currentView === "user-management" ? "page" : undefined}
                   >
                     <span>💻</span>
                     <span>Admin</span>
@@ -185,6 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     onClick={() => onNavigate("queue")}
                     data-testid="nav-queue-btn"
+                    aria-current={currentView === "queue" ? "page" : undefined}
                   >
                     <span>📄</span>
                     <span>Ticket Queue</span>
@@ -203,6 +210,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="btn btn-sm text-white d-flex align-items-center gap-2 border-0 py-1 px-2"
               onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
               aria-expanded={profileDropdownOpen}
+              aria-label={`Profile menu for ${user.name}`}
             >
               <div
                 className="rounded-circle d-flex align-items-center justify-content-center bg-white text-zen-green fw-bold"
@@ -246,19 +254,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Hidden fallback elements for test suite compatibility */}
-            <div className="d-none">
-              <span data-testid="active-requester-name">{user.name}</span>
-              <span data-testid="active-user-role">{getRoleLabel(role)}</span>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                data-testid={activeRequester ? "change-requester-btn" : "logout-btn"}
-              >
-                Sign Out
-              </button>
-            </div>
           </div>
         )}
       </div>

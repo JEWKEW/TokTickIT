@@ -13,7 +13,7 @@ import fs from 'fs';
  *  - AC-05: Role-based navigation -> permitted nav items shown per role
  */
 
-const SCREENSHOT_BASE = path.resolve('artifacts/lab-03/screenshots/authentication');
+const SCREENSHOT_BASE = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/authentication');
 
 if (!fs.existsSync(SCREENSHOT_BASE)) {
   fs.mkdirSync(SCREENSHOT_BASE, { recursive: true });
@@ -134,6 +134,7 @@ test.describe('E2E Authentication, Password Management & Role Access (Lab 3)', (
     await page.locator('[data-testid="login-submit-btn"]').click();
 
     await expect(page.locator('[data-testid="app-authenticated"]')).toBeVisible();
+    await page.locator('[data-testid="nav-admin-btn"]').click();
 
     const timestamp = Date.now();
     const tempEmail = `e2e_temp_${timestamp}@toktickit.com`;

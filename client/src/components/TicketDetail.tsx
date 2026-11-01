@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import ActionsTakenPanel from "./ActionsTakenPanel.js";
 import {
   fetchTicketById,
   Ticket,
@@ -27,6 +28,21 @@ interface TicketDetailProps {
   onBack: () => void;
 }
 
+export function getPermittedStatusTransitions(currentStatus: string): string[] {
+  const transitions: Record<string, string[]> = {
+    "New": ["Open", "In Progress", "Cancelled"],
+    "Open": ["In Progress", "Waiting for Requester", "Resolved", "Cancelled"],
+    "In Progress": ["Waiting for Requester", "Resolved", "Cancelled"],
+    "Waiting for Requester": ["In Progress", "Resolved", "Cancelled"],
+    "Resolved": ["Closed", "Reopened"],
+    "Closed": [],
+    "Reopened": ["In Progress", "Resolved", "Cancelled"],
+    "Cancelled": [],
+  };
+  const canonicalStatus = Object.keys(transitions).find((status) => status.toLowerCase() === currentStatus.trim().toLowerCase());
+  return canonicalStatus ? [...transitions[canonicalStatus]] : [];
+}
+
 export default function TicketDetail({
   ticketId,
   userId,
@@ -45,6 +61,9 @@ export default function TicketDetail({
   const [removalReason, setRemovalReason] = useState<string>("");
   const [removing, setRemoving] = useState<boolean>(false);
   const [removalError, setRemovalError] = useState<string | null>(null);
+  const removalReasonRef = useRef<HTMLTextAreaElement>(null);
+  const removalTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const removalDialogRef = useRef<HTMLDivElement>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // BR-05 Requester Resolution Indication State
@@ -68,10 +87,11 @@ export default function TicketDetail({
   const [updatingOwner, setUpdatingOwner] = useState<boolean>(false);
   const [updatingPriority, setUpdatingPriority] = useState<boolean>(false);
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+  const [pendingStatus, setPendingStatus] = useState<string>("");
   const [opError, setOpError] = useState<string | null>(null);
 
   // Bottom Tabs State (Image 1 & 5)
-  const [activeTab, setActiveTab] = useState<"comments" | "notes" | "attachments" | "services" | "events">("comments");
+  const [activeTab, setActiveTab] = useState<"comments" | "notes" | "attachments" | "actions" | "events">("comments");
 
   const isStaffOrAdmin = userRole === "IT_STAFF" || userRole === "ADMINISTRATOR";
 
@@ -92,8 +112,9 @@ export default function TicketDetail({
     try {
       const data = await fetchPublicComments(ticketId, userId);
       setComments(data);
-    } catch (err: any) {
-      console.error("Failed to load public comments:", err);
+      setCommentError(null);
+    } catch {
+      setCommentError("Public comments could not be loaded. Please try again.");
     }
   }, [ticketId, userId]);
 
@@ -102,8 +123,9 @@ export default function TicketDetail({
     try {
       const data = await fetchInternalNotes(ticketId, userId);
       setInternalNotes(data);
-    } catch (err: any) {
-      console.error("Failed to load internal notes:", err);
+      setInternalNoteError(null);
+    } catch {
+      setInternalNoteError("Internal notes could not be loaded. Please try again.");
     }
   }, [ticketId, userId, isStaffOrAdmin]);
 
@@ -112,8 +134,8 @@ export default function TicketDetail({
     try {
       const users = await fetchRequesters();
       setStaffUsers(users.filter((u) => u.isActive));
-    } catch (err: any) {
-      console.error("Failed to load user list for assignment:", err);
+    } catch {
+      setOpError("The staff list could not be loaded. Assignment controls may be unavailable.");
     }
   }, [isStaffOrAdmin]);
 
@@ -123,6 +145,16 @@ export default function TicketDetail({
     loadNotes();
     loadStaffUsers();
   }, [loadTicketDetail, loadComments, loadNotes, loadStaffUsers]);
+
+  useEffect(() => {
+    if (removingAttachment) {
+      const frame = window.requestAnimationFrame(() => removalReasonRef.current?.focus());
+      return () => window.cancelAnimationFrame(frame);
+    }
+    if (removalTriggerRef.current?.isConnected && !removalTriggerRef.current.disabled) {
+      removalTriggerRef.current.focus();
+    }
+  }, [removingAttachment]);
 
   const activeAttachments = ticket?.attachments?.filter((a) => !a.isRemoved) || [];
 
@@ -207,12 +239,46 @@ export default function TicketDetail({
     }
   };
 
+  const closeRemovalDialog = () => {
+    if (removing) return;
+    setRemovingAttachment(null);
+    setRemovalReason("");
+    setRemovalError(null);
+  };
+
+  const handleRemovalDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeRemovalDialog();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const controls = Array.from(removalDialogRef.current?.querySelectorAll<HTMLElement>(
+      'textarea:not([disabled]), button:not([disabled])',
+    ) ?? []);
+    if (controls.length === 0) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   const handleIndicateResolved = async () => {
     setIndicatingResolved(true);
     setIndicateError(null);
     try {
       const updated = await indicateTicketResolved(ticketId, userId);
-      setTicket((prev) => (prev ? { ...prev, requesterResolvedIndicated: updated.requesterResolvedIndicated } : null));
+      setTicket((prev) => (prev ? {
+        ...prev,
+        requesterResolvedIndicated: updated.requesterResolvedIndicated,
+        requesterResolvedAt: updated.requesterResolvedAt,
+        currentStatus: updated.currentStatus,
+      } : null));
     } catch (err: any) {
       setIndicateError(err.message || "Failed to indicate problem resolved");
     } finally {
@@ -293,40 +359,24 @@ export default function TicketDetail({
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
+  const handleUpdateStatus = async () => {
+    if (!ticket || !pendingStatus || pendingStatus === ticket.currentStatus) return;
     setUpdatingStatus(true);
     setOpError(null);
     try {
-      const updated = await updateTicketStatus(ticketId, newStatus, userId);
-      setTicket((prev) => (prev ? { ...prev, currentStatus: updated.currentStatus } : null));
+      const updated = await updateTicketStatus(ticketId, pendingStatus, ticket.updatedAt, userId);
+      setTicket((prev) => (prev ? { ...prev, ...updated } : updated));
+      setPendingStatus("");
     } catch (err: any) {
-      setOpError(err.message || "Failed to update ticket status");
+      if (err?.code === "STALE_UPDATE") {
+        setPendingStatus("");
+        setOpError("This record was modified by another user. Refreshing...");
+        await loadTicketDetail();
+      } else {
+        setOpError(err.message || "Failed to update ticket status");
+      }
     } finally {
       setUpdatingStatus(false);
-    }
-  };
-
-  const getPermittedTransitions = (currentStatus: string): string[] => {
-    const sLower = (currentStatus || "").toLowerCase();
-    switch (sLower) {
-      case "new":
-        return ["Open", "In Progress", "Cancelled"];
-      case "open":
-        return ["In Progress", "Waiting for Requester", "Resolved", "Cancelled"];
-      case "in progress":
-      case "in_progress":
-        return ["Waiting for Requester", "Resolved", "Cancelled"];
-      case "waiting for requester":
-      case "waiting_for_requester":
-        return ["In Progress", "Resolved", "Cancelled"];
-      case "resolved":
-        return ["Closed", "Reopened"];
-      case "reopened":
-        return ["In Progress", "Resolved", "Cancelled"];
-      case "closed":
-      case "cancelled":
-      default:
-        return [];
     }
   };
 
@@ -411,7 +461,7 @@ export default function TicketDetail({
       ) : ticket ? (
         <div className="d-flex flex-column gap-4">
           {opError && (
-            <div className="alert alert-danger mb-0" data-testid="operation-error">
+            <div className="alert alert-danger mb-0" role="alert" data-testid="operation-error">
               {opError}
             </div>
           )}
@@ -431,7 +481,7 @@ export default function TicketDetail({
               </div>
 
               <div className="col-12 col-md-4">
-                <label className="form-label small fw-semibold text-muted mb-1">
+                  <label htmlFor="statusSelect" className="form-label small fw-semibold text-muted mb-1">
                   {isStaffOrAdmin ? "Category" : "Ticket Date"}
                 </label>
                 {isStaffOrAdmin ? (
@@ -500,7 +550,7 @@ export default function TicketDetail({
                     data-testid="ticket-priority"
                   >
                     {ticket.requestedPriority}
-                    <span className="d-none"> Priority</span>
+                    <span className="visually-hidden"> Priority</span>
                   </span>
                 </div>
               </div>
@@ -510,22 +560,35 @@ export default function TicketDetail({
                   {isStaffOrAdmin ? "Current Status" : "IT Priority"}
                 </label>
                 {isStaffOrAdmin ? (
+                  <>
                   <select
                     id="statusSelect"
                     className="form-select rounded-2"
                     style={{ borderColor: "#e2e8f0" }}
-                    value={ticket.currentStatus}
-                    onChange={(e) => handleUpdateStatus(e.target.value)}
+                    value={pendingStatus || ticket.currentStatus}
+                    onChange={(e) => setPendingStatus(e.target.value)}
                     disabled={updatingStatus}
                     data-testid="status-select"
                   >
                     <option value={ticket.currentStatus}>{ticket.currentStatus}</option>
-                    {getPermittedTransitions(ticket.currentStatus).map((st) => (
+                    {getPermittedStatusTransitions(ticket.currentStatus).map((st) => (
                       <option key={st} value={st}>
                         {st}
                       </option>
                     ))}
                   </select>
+                  {pendingStatus && pendingStatus !== ticket.currentStatus && (
+                    <button
+                      type="button"
+                      className="btn btn-zen-green btn-sm mt-2"
+                      onClick={handleUpdateStatus}
+                      disabled={updatingStatus}
+                      data-testid="update-status-btn"
+                    >
+                      {updatingStatus ? "Updating..." : "Update Status"}
+                    </button>
+                  )}
+                  </>
                 ) : (
                   <div
                     className="form-control rounded-2 bg-light d-flex align-items-center"
@@ -548,7 +611,7 @@ export default function TicketDetail({
 
               {/* Row 3: Ticket Owner, IT Priority (Staff) or Status (Requester) */}
               <div className="col-12 col-md-4">
-                <label className="form-label small fw-semibold text-muted mb-1">Ticket Owner</label>
+                <label htmlFor="ownerSelect" className="form-label small fw-semibold text-muted mb-1">Ticket Owner</label>
                 {isStaffOrAdmin ? (
                   <select
                     id="ownerSelect"
@@ -578,7 +641,7 @@ export default function TicketDetail({
 
               {isStaffOrAdmin ? (
                 <div className="col-12 col-md-4">
-                  <label className="form-label small fw-semibold text-muted mb-1">IT Priority</label>
+                  <label htmlFor="itPrioritySelect" className="form-label small fw-semibold text-muted mb-1">IT Priority</label>
                   <select
                     id="itPrioritySelect"
                     className="form-select rounded-2"
@@ -645,8 +708,9 @@ export default function TicketDetail({
 
               {/* Row 6: Resolution Summary */}
               <div className="col-12">
-                <label className="form-label small fw-semibold text-muted mb-1">Resolution Summary</label>
+                  <label htmlFor="resolution-summary" className="form-label small fw-semibold text-muted mb-1">Resolution Summary</label>
                 <input
+                  id="resolution-summary"
                   type="text"
                   className="form-control rounded-2 bg-light text-muted"
                   style={{ borderColor: "#e2e8f0" }}
@@ -660,30 +724,27 @@ export default function TicketDetail({
               </div>
             </div>
 
-            {/* Requester Indication Banner (BR-05) */}
-            {!isStaffOrAdmin && (
-              <div className="mt-3 pt-3 border-top d-flex justify-content-between align-items-center">
-                <span className="small text-muted">Problem Status Feedback:</span>
-                {ticket.requesterResolvedIndicated ? (
-                  <span
-                    className="pill-badge pill-status-resolved fs-6"
-                    data-testid="requester-resolved-badge"
-                  >
-                    ✓ Problem Appears Resolved by Requester
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-outline-zen-green btn-sm fw-medium rounded-2"
-                    onClick={handleIndicateResolved}
-                    disabled={indicatingResolved}
-                    data-testid="indicate-resolved-btn"
-                  >
-                    {indicatingResolved ? "Updating..." : "✓ Problem Appears Resolved"}
-                  </button>
-                )}
-              </div>
-            )}
+            {/* BR-08: Requester indication is advisory; formal status remains staff-controlled. */}
+            <div className="mt-3 pt-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2" data-testid="requester-resolution-feedback">
+              <span className="small text-muted">Requester problem feedback (advisory):</span>
+              {ticket.requesterResolvedIndicated ? (
+                <span className="pill-badge pill-status-resolved fs-6" data-testid="requester-resolved-badge">
+                  ✓ Requester indicated the problem appears resolved{ticket.requesterResolvedAt ? ` on ${new Date(ticket.requesterResolvedAt).toLocaleString()}` : ""}. Awaiting IT Staff formal resolution.
+                </span>
+              ) : isStaffOrAdmin ? (
+                <span className="small text-muted">No resolution indication from the Requester.</span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-outline-zen-green btn-sm fw-medium rounded-2"
+                  onClick={handleIndicateResolved}
+                  disabled={indicatingResolved}
+                  data-testid="indicate-resolved-btn"
+                >
+                  {indicatingResolved ? "Updating..." : "✓ Problem Appears Resolved"}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Bottom Tabbed Card matching Image 1 & Image 5 */}
@@ -724,12 +785,11 @@ export default function TicketDetail({
 
               <button
                 type="button"
-                className={`custom-tab-btn ${activeTab === "services" ? "active" : ""}`}
-                onClick={() => setActiveTab("services")}
+                className={`custom-tab-btn ${activeTab === "actions" ? "active" : ""}`}
+                onClick={() => setActiveTab("actions")}
               >
-                <span>🔧</span>
-                <span>Service Actions</span>
-                <span className="custom-tab-badge">1</span>
+                <span aria-hidden="true">✓</span>
+                <span>Actions Taken</span>
               </button>
 
               {!isStaffOrAdmin && (
@@ -750,10 +810,13 @@ export default function TicketDetail({
               className={`p-4 ${activeTab === "comments" ? "d-block" : "d-none"}`}
               data-testid="public-comments-section"
             >
+              {commentError && <div className="alert alert-warning py-2" role="alert">{commentError}</div>}
               <div className="mb-4">
                 <div className="fw-semibold text-dark small mb-2">Add Public Comment</div>
-                <form onSubmit={handlePostComment} className="d-flex gap-2">
+                <form onSubmit={handlePostComment} className="d-flex gap-2" aria-label="Add public comment">
+                  <label className="visually-hidden" htmlFor="public-comment-input">Public comment</label>
                   <input
+                    id="public-comment-input"
                     type="text"
                     className="form-control rounded-2"
                     style={{ borderColor: "#e2e8f0" }}
@@ -823,6 +886,7 @@ export default function TicketDetail({
                 className={`p-4 ${activeTab === "notes" ? "d-block" : "d-none"}`}
                 data-testid="internal-notes-section"
               >
+              {internalNoteError && <div className="alert alert-warning py-2" role="alert">{internalNoteError}</div>}
                 <div className="alert alert-warning py-2 mb-3 rounded-2 small d-flex justify-content-between align-items-center">
                   <span>🔒 Operational notes are strictly private to IT Staff & Admin.</span>
                   <span className="badge bg-warning text-dark border">
@@ -832,8 +896,10 @@ export default function TicketDetail({
 
                 <div className="mb-4">
                   <div className="fw-semibold text-dark small mb-2">Add Private Internal Note</div>
-                  <form onSubmit={handlePostInternalNote} className="d-flex gap-2">
+                  <form onSubmit={handlePostInternalNote} className="d-flex gap-2" aria-label="Add private internal note">
+                    <label className="visually-hidden" htmlFor="private-internal-note-input">Private internal note</label>
                     <input
+                      id="private-internal-note-input"
                       type="text"
                       className="form-control rounded-2 border-warning"
                       placeholder="Diagnose issue, log troubleshooting details..."
@@ -895,9 +961,10 @@ export default function TicketDetail({
               </div>
 
               {/* Upload Form */}
-              <form onSubmit={handleUpload} className="mb-4 p-3 bg-light rounded-3 border">
+              <form onSubmit={handleUpload} className="mb-4 p-3 bg-light rounded-3 border" aria-label="Upload attachment">
                 <div className="row g-2 align-items-center">
                   <div className="col">
+                    <label className="visually-hidden" htmlFor="attachmentFileInput">Choose an attachment file</label>
                     <input
                       type="file"
                       className="form-control form-control-sm rounded-2"
@@ -973,6 +1040,7 @@ export default function TicketDetail({
                                 type="button"
                                 className="btn btn-sm btn-outline-danger rounded-2 py-1 px-3"
                                 onClick={() => {
+                                  removalTriggerRef.current = document.activeElement as HTMLButtonElement;
                                   setRemovingAttachment(att);
                                   setRemovalReason("");
                                   setRemovalError(null);
@@ -993,10 +1061,8 @@ export default function TicketDetail({
               </div>
             </div>
 
-            {/* Tab 4: Service Actions */}
-            <div className={`p-4 ${activeTab === "services" ? "d-block" : "d-none"}`}>
-              <div className="text-muted small">1 service action logged for this ticket.</div>
-            </div>
+            {/* Actions Taken: staff create/edit; Requesters read only */}
+            {activeTab === "actions" && <div className="p-4"><ActionsTakenPanel ticketId={ticketId} userId={userId} userRole={userRole} /></div>}
 
             {/* Tab 5: Event Log */}
             {!isStaffOrAdmin && (
@@ -1011,21 +1077,31 @@ export default function TicketDetail({
             <div
               className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center z-3 p-3"
               data-testid="removal-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="removal-modal-title"
+              aria-describedby="removal-modal-description"
+              onKeyDown={handleRemovalDialogKeyDown}
             >
-              <div className="card shadow rounded-3 p-4 bg-white" style={{ maxWidth: 450, width: "100%" }}>
-                <h5 className="fw-bold mb-3">Remove Attachment</h5>
-                <p className="small text-muted">
+              <div ref={removalDialogRef} className="card shadow rounded-3 p-4 bg-white" style={{ maxWidth: 450, width: "100%" }}>
+                <h5 id="removal-modal-title" className="fw-bold mb-3">Remove Attachment</h5>
+                <p id="removal-modal-description" className="small text-muted">
                   Please provide a reason for soft-removing <strong>{removingAttachment.originalFileName}</strong>:
                 </p>
                 {removalError && (
-                  <div className="text-danger small mb-2" data-testid="removal-error">
+                  <div id="removal-error" className="text-danger small mb-2" role="alert" data-testid="removal-error">
                     {removalError}
                   </div>
                 )}
                 <textarea
+                  ref={removalReasonRef}
+                  id="removal-reason-input"
                   className="form-control rounded-2 mb-3"
                   rows={2}
-                  placeholder="Reason for removal (required)"
+                  aria-label="Reason for attachment removal"
+                  aria-required="true"
+                  aria-invalid={Boolean(removalError)}
+                  aria-describedby={removalError ? "removal-error" : "removal-modal-description"}
                   value={removalReason}
                   onChange={(e) => setRemovalReason(e.target.value)}
                   data-testid="removal-reason-input"
@@ -1034,7 +1110,8 @@ export default function TicketDetail({
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-secondary rounded-2"
-                    onClick={() => setRemovingAttachment(null)}
+                    onClick={closeRemovalDialog}
+                    disabled={removing}
                   >
                     Cancel
                   </button>
@@ -1042,6 +1119,7 @@ export default function TicketDetail({
                     type="button"
                     className="btn btn-sm btn-danger rounded-2"
                     onClick={handleRemove}
+                    disabled={removing}
                     data-testid="confirm-remove-btn"
                   >
                     {removing ? "Removing..." : "Confirm Removal"}

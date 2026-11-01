@@ -119,6 +119,11 @@ header.bg-zen-green {
   box-shadow: 0 0 0 2px rgba(0, 96, 57, 0.15);
 }
 
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--zg-primary);
+  outline-offset: 2px;
+}
+
 .form-control-sm,
 .form-select-sm {
   font-size: 0.8rem;
@@ -178,6 +183,11 @@ header.bg-zen-green {
 }
 
 .pill-status-closed {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.pill-status-cancelled {
   background-color: #f1f5f9;
   color: #475569;
 }

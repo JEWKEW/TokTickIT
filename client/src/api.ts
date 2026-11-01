@@ -58,26 +58,56 @@ export interface PublicComment {
   };
 }
 
-export interface SystemStatus {
-  online: boolean;
-  categories: Category[];
+export interface ActionTaken {
+  id: number;
+  ticketId: number;
+  performedById?: number;
+  performedBy?: { id: number; name: string; email?: string; role?: string };
+  actionDateTime: string;
+  actionDescription: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export async function checkSystem(): Promise<SystemStatus> {
-  try {
-    const healthRes = await fetch(`${API_URL}/api/health`);
-    if (!healthRes.ok) {
-      throw new Error("Unable to connect to TokTickIT API");
-    }
-    const categoriesRes = await fetch(`${API_URL}/api/categories`);
-    if (!categoriesRes.ok) {
-      throw new Error("Unable to connect to TokTickIT API");
-    }
-    const categories: Category[] = await categoriesRes.json();
-    return { online: true, categories };
-  } catch (error) {
-    throw new Error("Unable to connect to TokTickIT API");
+export type ActionTakenInput = Pick<ActionTaken, "actionDateTime" | "actionDescription" | "result" | "followUpRequired" | "followUpNote" | "attachmentNotes">;
+
+export async function fetchActionsTaken(ticketId: number, userId: number): Promise<ActionTaken[]> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data?.error?.message || "Failed to retrieve Actions Taken");
+  return data.data;
+}
+
+export async function createActionTaken(ticketId: number, input: ActionTakenInput, userId: number): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+    method: "POST",
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data?.error?.message || "Failed to create Action Taken");
+  return data.data;
+}
+
+export async function updateActionTaken(ticketId: number, actionId: number, input: Partial<ActionTakenInput>, expectedUpdatedAt: string, userId: number): Promise<ActionTaken> {
+  const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken/${actionId}`, {
+    method: "PATCH",
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    body: JSON.stringify({ ...input, expectedUpdatedAt }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    const error = new Error(data?.error?.message || "Failed to update Action Taken");
+    (error as Error & { code?: string }).code = data?.error?.code;
+    throw error;
   }
+  return data.data;
 }
 
 export interface Requester {
@@ -163,6 +193,49 @@ export interface PaginationMeta {
 export interface PaginatedTickets {
   items: Ticket[];
   meta: PaginationMeta;
+}
+
+export interface RequesterDashboardTicket {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  currentStatus: string;
+  updatedAt: string;
+}
+
+export interface RequesterDashboardData {
+  metrics: { openCount: number; inProgressCount: number; resolvedCount: number; closedCount: number; waitingForRequesterCount: number };
+  recentlyUpdated: RequesterDashboardTicket[];
+  recentlyResolved: RequesterDashboardTicket[];
+}
+
+export async function fetchRequesterDashboard(userId: number): Promise<RequesterDashboardData> {
+  const res = await fetch(`${API_URL}/api/dashboards/requester`, {
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data?.error?.message || "Unable to load dashboard metrics");
+  return data.data;
+}
+
+export interface StaffDashboardData {
+  metrics: { unassignedCount: number; myAssignedCount: number; statusCounts: Record<string, number>; priorityCounts: Record<string, number> };
+  recentTickets: Array<Pick<Ticket, "id" | "ticketNumber" | "summary" | "currentStatus" | "updatedAt"> & { itPriority: string | null; ownerId: number | null; owner: { id: number; name: string } | null }>;
+  myRecentActions: Array<Pick<ActionTaken, "id" | "ticketId" | "actionDescription" | "result" | "actionDateTime" | "followUpRequired"> & { ticketNumber: string }>;
+  adminUserCounts?: { activeRequesters: number; activeStaff: number; activeAdmins: number };
+}
+
+export class DashboardFetchError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); }
+}
+
+export async function fetchStaffDashboard(userId: number): Promise<StaffDashboardData> {
+  const res = await fetch(`${API_URL}/api/dashboards/staff`, {
+    headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new DashboardFetchError(data?.error?.message || "Unable to load staff dashboard metrics", res.status);
+  return data.data;
 }
 
 export async function fetchTickets(
@@ -303,7 +376,7 @@ export async function removeAttachment(
 export async function indicateTicketResolved(
   ticketId: number,
   userId: number
-): Promise<{ id: number; requesterResolvedIndicated: boolean; requesterResolvedAt: string }> {
+): Promise<{ id: number; requesterResolvedIndicated: boolean; requesterResolvedAt: string; currentStatus: string }> {
   const url = `${API_URL}/api/tickets/${ticketId}/indicate-resolved`;
   const res = await fetch(url, {
     method: "PATCH",
@@ -517,17 +590,20 @@ export async function updateITPriority(
 export async function updateTicketStatus(
   ticketId: number,
   status: string,
+  expectedUpdatedAt: string,
   tokenOrUserId?: string | number
 ): Promise<Ticket> {
   const url = `${API_URL}/api/tickets/${ticketId}/status`;
   const res = await fetch(url, {
     method: "PATCH",
     headers: buildAuthHeaders(tokenOrUserId),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, expectedUpdatedAt }),
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data?.error?.message || "Failed to update ticket status");
+    const error = new Error(data?.error?.message || "Failed to update ticket status");
+    (error as Error & { code?: string }).code = data?.error?.code;
+    throw error;
   }
   return data.data;
 }

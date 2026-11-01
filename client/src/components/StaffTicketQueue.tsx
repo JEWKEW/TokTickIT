@@ -32,14 +32,18 @@ export default function StaffTicketQueue({
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters state
-  const [search, setSearch] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  const initialDashboardFilter = (() => {
+    try { return JSON.parse(sessionStorage.getItem("staffQueueFilter") || "{}"); } catch { return {}; }
+  })();
+  const [search, setSearch] = useState<string>(initialDashboardFilter.search || "");
+  const [statusFilter, setStatusFilter] = useState<string>(initialDashboardFilter.status || "all");
+  const [priorityFilter, setPriorityFilter] = useState<string>(initialDashboardFilter.itPriority || "all");
+  const [ownerFilter, setOwnerFilter] = useState<string>(initialDashboardFilter.ownerId || "all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -48,8 +52,8 @@ export default function StaffTicketQueue({
 
   useEffect(() => {
     fetchCategories()
-      .then(setCategories)
-      .catch((err) => console.error("Failed to load categories:", err));
+      .then((items) => { setCategories(items); setCategoriesError(null); })
+      .catch(() => setCategoriesError("Ticket categories could not be loaded. Category filtering is unavailable."));
   }, []);
 
   const loadQueue = useCallback(async () => {
@@ -177,6 +181,7 @@ export default function StaffTicketQueue({
 
   return (
     <div className="container py-3 px-3 px-md-4" style={{ maxWidth: 1140 }} data-testid="ticket-queue-container">
+      {categoriesError && <div className="alert alert-warning py-2 px-3 small" role="alert">{categoriesError}</div>}
       {/* Top Search Bar with Filters Button (Image 3) */}
       <div className="d-flex flex-column gap-2 mb-3">
         <div className="d-flex gap-2 align-items-center">

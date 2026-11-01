@@ -1,20 +1,37 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-export async function checkSystem() {
-    try {
-        const healthRes = await fetch(`${API_URL}/api/health`);
-        if (!healthRes.ok) {
-            throw new Error("Unable to connect to TokTickIT API");
-        }
-        const categoriesRes = await fetch(`${API_URL}/api/categories`);
-        if (!categoriesRes.ok) {
-            throw new Error("Unable to connect to TokTickIT API");
-        }
-        const categories = await categoriesRes.json();
-        return { online: true, categories };
+export async function fetchActionsTaken(ticketId, userId) {
+    const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new Error(data?.error?.message || "Failed to retrieve Actions Taken");
+    return data.data;
+}
+export async function createActionTaken(ticketId, input, userId) {
+    const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken`, {
+        method: "POST",
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new Error(data?.error?.message || "Failed to create Action Taken");
+    return data.data;
+}
+export async function updateActionTaken(ticketId, actionId, input, expectedUpdatedAt, userId) {
+    const res = await fetch(`${API_URL}/api/tickets/${ticketId}/actions-taken/${actionId}`, {
+        method: "PATCH",
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+        body: JSON.stringify({ ...input, expectedUpdatedAt }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+        const error = new Error(data?.error?.message || "Failed to update Action Taken");
+        error.code = data?.error?.code;
+        throw error;
     }
-    catch (error) {
-        throw new Error("Unable to connect to TokTickIT API");
-    }
+    return data.data;
 }
 export async function fetchRequesters() {
     try {
@@ -64,6 +81,31 @@ export async function createTicket(formData, userId) {
     if (!res.ok || !data.success) {
         throw new Error(data?.error?.message || "Failed to create ticket");
     }
+    return data.data;
+}
+export async function fetchRequesterDashboard(userId) {
+    const res = await fetch(`${API_URL}/api/dashboards/requester`, {
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new Error(data?.error?.message || "Unable to load dashboard metrics");
+    return data.data;
+}
+export class DashboardFetchError extends Error {
+    status;
+    constructor(message, status) {
+        super(message);
+        this.status = status;
+    }
+}
+export async function fetchStaffDashboard(userId) {
+    const res = await fetch(`${API_URL}/api/dashboards/staff`, {
+        headers: { "x-user-id": String(userId), "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success)
+        throw new DashboardFetchError(data?.error?.message || "Unable to load staff dashboard metrics", res.status);
     return data.data;
 }
 export async function fetchTickets(params = {}, userId) {
@@ -334,16 +376,18 @@ export async function updateITPriority(ticketId, itPriority, tokenOrUserId) {
     }
     return data.data;
 }
-export async function updateTicketStatus(ticketId, status, tokenOrUserId) {
+export async function updateTicketStatus(ticketId, status, expectedUpdatedAt, tokenOrUserId) {
     const url = `${API_URL}/api/tickets/${ticketId}/status`;
     const res = await fetch(url, {
         method: "PATCH",
         headers: buildAuthHeaders(tokenOrUserId),
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, expectedUpdatedAt }),
     });
     const data = await res.json();
     if (!res.ok || !data.success) {
-        throw new Error(data?.error?.message || "Failed to update ticket status");
+        const error = new Error(data?.error?.message || "Failed to update ticket status");
+        error.code = data?.error?.code;
+        throw error;
     }
     return data.data;
 }

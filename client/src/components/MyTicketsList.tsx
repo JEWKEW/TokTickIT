@@ -11,9 +11,10 @@ interface MyTicketsListProps {
   userId: number;
   onCreateTicket?: () => void;
   onSelectTicket?: (ticketId: number) => void;
+  initialStatus?: string;
 }
 
-export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }: MyTicketsListProps) {
+export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket, initialStatus = "all" }: MyTicketsListProps) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>({
     currentPage: 1,
@@ -32,7 +33,7 @@ export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }
   const [search, setSearch] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
-  const [status, setStatus] = useState<string>("all");
+  const [status, setStatus] = useState<string>(initialStatus);
   const [sort, setSort] = useState<string>("createdAt");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState<number>(1);
@@ -238,10 +239,15 @@ export default function MyTicketsList({ userId, onCreateTicket, onSelectTicket }
               data-testid="status-filter"
             >
               <option value="all">All Statuses</option>
+              <option value="open-tickets">All Open Tickets</option>
               <option value="New">New</option>
+              <option value="Open">Open</option>
               <option value="In Progress">In Progress</option>
+              <option value="Waiting for Requester">Waiting for Requester</option>
               <option value="Resolved">Resolved</option>
+              <option value="Reopened">Reopened</option>
               <option value="Closed">Closed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
 

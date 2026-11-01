@@ -13,9 +13,9 @@ import fs from 'fs';
  *  - AC-09: Public comments and internal notes operational workflows for IT Staff
  */
 
-const STAFF_QUEUE_DIR = path.resolve('artifacts/lab-03/screenshots/staff-queue');
-const STAFF_DETAIL_DIR = path.resolve('artifacts/lab-03/screenshots/staff-ticket-detail');
-const REQUESTER_DIR = path.resolve('artifacts/lab-03/screenshots/requester');
+const STAFF_QUEUE_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/staff-queue');
+const STAFF_DETAIL_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/staff-ticket-detail');
+const REQUESTER_DIR = path.resolve('artifacts/lab-04/screenshots/regression/lab-03/requester');
 
 [STAFF_QUEUE_DIR, STAFF_DETAIL_DIR, REQUESTER_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) {
@@ -49,6 +49,7 @@ test.describe('E2E Staff Ticket Flow & Operational Lifecycle (Lab 3)', () => {
     await page.locator('[data-testid="login-email-input"]').fill('michael.brown@toktickit.com');
     await page.locator('[data-testid="login-password-input"]').fill('Password123!');
     await page.locator('[data-testid="login-submit-btn"]').click();
+    await page.locator('[data-testid="nav-queue-btn"]').click();
 
     await expect(page.locator('[data-testid="ticket-queue-container"]')).toBeVisible();
 
@@ -132,6 +133,7 @@ test.describe('E2E Staff Ticket Flow & Operational Lifecycle (Lab 3)', () => {
     await page.locator('[data-testid="login-submit-btn"]').click();
 
     await expect(page.locator('[data-testid="app-authenticated"]')).toBeVisible();
+    await page.locator('[data-testid="dashboard-view-tickets"]').click();
 
     // Click first ticket from My Tickets dashboard
     const firstTicket = page.locator('[data-testid^="ticket-link-"]').first();

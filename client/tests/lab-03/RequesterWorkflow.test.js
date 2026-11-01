@@ -42,6 +42,7 @@ describe("Lab 03 Requester Workflow UI Component Tests (TicketDetail)", () => {
             id: 12,
             requesterResolvedIndicated: true,
             requesterResolvedAt: "2026-09-18T10:00:00Z",
+            currentStatus: mockTicket.currentStatus,
         });
         render(_jsx(TicketDetail, { ticketId: 12, userId: 1, onBack: () => { } }));
         await waitFor(() => {
@@ -54,7 +55,7 @@ describe("Lab 03 Requester Workflow UI Component Tests (TicketDetail)", () => {
         await waitFor(() => {
             expect(apiModule.indicateTicketResolved).toHaveBeenCalledWith(12, 1);
             expect(screen.getByTestId("requester-resolved-badge")).toBeInTheDocument();
-            expect(screen.getByTestId("requester-resolved-badge")).toHaveTextContent("Problem Appears Resolved by Requester");
+            expect(screen.getByTestId("requester-resolved-badge")).toHaveTextContent("Awaiting IT Staff formal resolution");
         });
     });
     it("renders public comments and allows posting a new public comment", async () => {
