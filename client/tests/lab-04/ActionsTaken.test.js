@@ -46,9 +46,14 @@ describe("Lab 4 Actions Taken UI", () => {
         await user.type(screen.getByLabelText("Result"), "Connection restored");
         await user.click(screen.getByLabelText("Follow-up required"));
         await user.click(screen.getByRole("button", { name: "Record Action" }));
-        expect(await screen.findByText("Enter a follow-up note when follow-up is required.")).toBeInTheDocument();
+        expect(await screen.findByTestId("action-form-error")).toHaveTextContent("Please correct the highlighted field below.");
+        expect(screen.getByText("Enter a follow-up note when follow-up is required.")).toBeInTheDocument();
         expect(api.createActionTaken).not.toHaveBeenCalled();
-        await user.type(screen.getByLabelText(/Follow-up note/), "Verify next shift");
+        const followUpNote = screen.getByLabelText(/Follow-up note/);
+        expect(followUpNote).toHaveAttribute("aria-invalid", "true");
+        expect(followUpNote).toHaveAccessibleDescription("Enter a follow-up note when follow-up is required.");
+        await user.type(followUpNote, "Verify next shift");
+        expect(followUpNote).not.toHaveAttribute("aria-invalid", "true");
         await user.click(screen.getByRole("button", { name: "Record Action" }));
         await waitFor(() => expect(api.createActionTaken).toHaveBeenCalledWith(12, expect.objectContaining({
             actionDescription: "Restarted network equipment", result: "Connection restored",

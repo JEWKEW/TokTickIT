@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import ActionsTakenPanel from "./ActionsTakenPanel.js";
 import {
   fetchTicketById,
@@ -61,6 +61,9 @@ export default function TicketDetail({
   const [removalReason, setRemovalReason] = useState<string>("");
   const [removing, setRemoving] = useState<boolean>(false);
   const [removalError, setRemovalError] = useState<string | null>(null);
+  const removalReasonRef = useRef<HTMLTextAreaElement>(null);
+  const removalTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const removalDialogRef = useRef<HTMLDivElement>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // BR-05 Requester Resolution Indication State
@@ -143,6 +146,16 @@ export default function TicketDetail({
     loadStaffUsers();
   }, [loadTicketDetail, loadComments, loadNotes, loadStaffUsers]);
 
+  useEffect(() => {
+    if (removingAttachment) {
+      const frame = window.requestAnimationFrame(() => removalReasonRef.current?.focus());
+      return () => window.cancelAnimationFrame(frame);
+    }
+    if (removalTriggerRef.current?.isConnected && !removalTriggerRef.current.disabled) {
+      removalTriggerRef.current.focus();
+    }
+  }, [removingAttachment]);
+
   const activeAttachments = ticket?.attachments?.filter((a) => !a.isRemoved) || [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,6 +236,35 @@ export default function TicketDetail({
       setRemovalError(err.message || "Failed to remove attachment");
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const closeRemovalDialog = () => {
+    if (removing) return;
+    setRemovingAttachment(null);
+    setRemovalReason("");
+    setRemovalError(null);
+  };
+
+  const handleRemovalDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeRemovalDialog();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const controls = Array.from(removalDialogRef.current?.querySelectorAll<HTMLElement>(
+      'textarea:not([disabled]), button:not([disabled])',
+    ) ?? []);
+    if (controls.length === 0) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   };
 
@@ -439,7 +481,7 @@ export default function TicketDetail({
               </div>
 
               <div className="col-12 col-md-4">
-                <label className="form-label small fw-semibold text-muted mb-1">
+                  <label htmlFor="statusSelect" className="form-label small fw-semibold text-muted mb-1">
                   {isStaffOrAdmin ? "Category" : "Ticket Date"}
                 </label>
                 {isStaffOrAdmin ? (
@@ -569,7 +611,7 @@ export default function TicketDetail({
 
               {/* Row 3: Ticket Owner, IT Priority (Staff) or Status (Requester) */}
               <div className="col-12 col-md-4">
-                <label className="form-label small fw-semibold text-muted mb-1">Ticket Owner</label>
+                <label htmlFor="ownerSelect" className="form-label small fw-semibold text-muted mb-1">Ticket Owner</label>
                 {isStaffOrAdmin ? (
                   <select
                     id="ownerSelect"
@@ -599,7 +641,7 @@ export default function TicketDetail({
 
               {isStaffOrAdmin ? (
                 <div className="col-12 col-md-4">
-                  <label className="form-label small fw-semibold text-muted mb-1">IT Priority</label>
+                  <label htmlFor="itPrioritySelect" className="form-label small fw-semibold text-muted mb-1">IT Priority</label>
                   <select
                     id="itPrioritySelect"
                     className="form-select rounded-2"
@@ -666,8 +708,9 @@ export default function TicketDetail({
 
               {/* Row 6: Resolution Summary */}
               <div className="col-12">
-                <label className="form-label small fw-semibold text-muted mb-1">Resolution Summary</label>
+                  <label htmlFor="resolution-summary" className="form-label small fw-semibold text-muted mb-1">Resolution Summary</label>
                 <input
+                  id="resolution-summary"
                   type="text"
                   className="form-control rounded-2 bg-light text-muted"
                   style={{ borderColor: "#e2e8f0" }}
@@ -770,8 +813,10 @@ export default function TicketDetail({
               {commentError && <div className="alert alert-warning py-2" role="alert">{commentError}</div>}
               <div className="mb-4">
                 <div className="fw-semibold text-dark small mb-2">Add Public Comment</div>
-                <form onSubmit={handlePostComment} className="d-flex gap-2">
+                <form onSubmit={handlePostComment} className="d-flex gap-2" aria-label="Add public comment">
+                  <label className="visually-hidden" htmlFor="public-comment-input">Public comment</label>
                   <input
+                    id="public-comment-input"
                     type="text"
                     className="form-control rounded-2"
                     style={{ borderColor: "#e2e8f0" }}
@@ -851,8 +896,10 @@ export default function TicketDetail({
 
                 <div className="mb-4">
                   <div className="fw-semibold text-dark small mb-2">Add Private Internal Note</div>
-                  <form onSubmit={handlePostInternalNote} className="d-flex gap-2">
+                  <form onSubmit={handlePostInternalNote} className="d-flex gap-2" aria-label="Add private internal note">
+                    <label className="visually-hidden" htmlFor="private-internal-note-input">Private internal note</label>
                     <input
+                      id="private-internal-note-input"
                       type="text"
                       className="form-control rounded-2 border-warning"
                       placeholder="Diagnose issue, log troubleshooting details..."
@@ -914,9 +961,10 @@ export default function TicketDetail({
               </div>
 
               {/* Upload Form */}
-              <form onSubmit={handleUpload} className="mb-4 p-3 bg-light rounded-3 border">
+              <form onSubmit={handleUpload} className="mb-4 p-3 bg-light rounded-3 border" aria-label="Upload attachment">
                 <div className="row g-2 align-items-center">
                   <div className="col">
+                    <label className="visually-hidden" htmlFor="attachmentFileInput">Choose an attachment file</label>
                     <input
                       type="file"
                       className="form-control form-control-sm rounded-2"
@@ -992,6 +1040,7 @@ export default function TicketDetail({
                                 type="button"
                                 className="btn btn-sm btn-outline-danger rounded-2 py-1 px-3"
                                 onClick={() => {
+                                  removalTriggerRef.current = document.activeElement as HTMLButtonElement;
                                   setRemovingAttachment(att);
                                   setRemovalReason("");
                                   setRemovalError(null);
@@ -1028,21 +1077,31 @@ export default function TicketDetail({
             <div
               className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex align-items-center justify-content-center z-3 p-3"
               data-testid="removal-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="removal-modal-title"
+              aria-describedby="removal-modal-description"
+              onKeyDown={handleRemovalDialogKeyDown}
             >
-              <div className="card shadow rounded-3 p-4 bg-white" style={{ maxWidth: 450, width: "100%" }}>
-                <h5 className="fw-bold mb-3">Remove Attachment</h5>
-                <p className="small text-muted">
+              <div ref={removalDialogRef} className="card shadow rounded-3 p-4 bg-white" style={{ maxWidth: 450, width: "100%" }}>
+                <h5 id="removal-modal-title" className="fw-bold mb-3">Remove Attachment</h5>
+                <p id="removal-modal-description" className="small text-muted">
                   Please provide a reason for soft-removing <strong>{removingAttachment.originalFileName}</strong>:
                 </p>
                 {removalError && (
-                  <div className="text-danger small mb-2" data-testid="removal-error">
+                  <div id="removal-error" className="text-danger small mb-2" role="alert" data-testid="removal-error">
                     {removalError}
                   </div>
                 )}
                 <textarea
+                  ref={removalReasonRef}
+                  id="removal-reason-input"
                   className="form-control rounded-2 mb-3"
                   rows={2}
-                  placeholder="Reason for removal (required)"
+                  aria-label="Reason for attachment removal"
+                  aria-required="true"
+                  aria-invalid={Boolean(removalError)}
+                  aria-describedby={removalError ? "removal-error" : "removal-modal-description"}
                   value={removalReason}
                   onChange={(e) => setRemovalReason(e.target.value)}
                   data-testid="removal-reason-input"
@@ -1051,7 +1110,8 @@ export default function TicketDetail({
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-secondary rounded-2"
-                    onClick={() => setRemovingAttachment(null)}
+                    onClick={closeRemovalDialog}
+                    disabled={removing}
                   >
                     Cancel
                   </button>
@@ -1059,6 +1119,7 @@ export default function TicketDetail({
                     type="button"
                     className="btn btn-sm btn-danger rounded-2"
                     onClick={handleRemove}
+                    disabled={removing}
                     data-testid="confirm-remove-btn"
                   >
                     {removing ? "Removing..." : "Confirm Removal"}

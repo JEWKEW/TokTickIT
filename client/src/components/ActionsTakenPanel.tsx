@@ -22,6 +22,8 @@ interface Draft {
   attachmentNotes: string;
 }
 
+type FieldErrors = Partial<Record<keyof Draft, string>>;
+
 const emptyDraft = (): Draft => ({
   actionDateTime: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
   actionDescription: "",
@@ -73,6 +75,7 @@ export default function ActionsTakenPanel({ ticketId, userId, userRole }: Props)
   const [editing, setEditing] = useState<ActionTaken | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -96,6 +99,7 @@ export default function ActionsTakenPanel({ ticketId, userId, userRole }: Props)
     setFormOpen(true);
     setDraft(draftFromAction(action));
     setFormError("");
+    setFieldErrors({});
     setNotice("");
   };
 
@@ -104,6 +108,7 @@ export default function ActionsTakenPanel({ ticketId, userId, userRole }: Props)
     setFormOpen(false);
     setDraft(emptyDraft());
     setFormError("");
+    setFieldErrors({});
     setNotice("");
   };
 
@@ -111,21 +116,27 @@ export default function ActionsTakenPanel({ ticketId, userId, userRole }: Props)
     event.preventDefault();
     if (savingRef.current) return;
     setFormError("");
+    setFieldErrors({});
     setNotice("");
     if (!draft.actionDateTime || !Number.isFinite(new Date(draft.actionDateTime).getTime())) {
-      setFormError("Enter a valid action date and time."); return;
+      const message = "Enter a valid action date and time.";
+      setFormError(message); setFieldErrors({ actionDateTime: message }); return;
     }
     if (new Date(draft.actionDateTime).getTime() > Date.now()) {
-      setFormError("Action date and time cannot be in the future."); return;
+      const message = "Action date and time cannot be in the future.";
+      setFormError(message); setFieldErrors({ actionDateTime: message }); return;
     }
     if (!draft.actionDescription.trim() || draft.actionDescription.length > 2000) {
-      setFormError("Action description is required and must be 2,000 characters or fewer."); return;
+      const message = "Action description is required and must be 2,000 characters or fewer.";
+      setFormError(message); setFieldErrors({ actionDescription: message }); return;
     }
     if (!draft.result.trim() || draft.result.length > 1000) {
-      setFormError("Result is required and must be 1,000 characters or fewer."); return;
+      const message = "Result is required and must be 1,000 characters or fewer.";
+      setFormError(message); setFieldErrors({ result: message }); return;
     }
     if (draft.followUpRequired && !draft.followUpNote.trim()) {
-      setFormError("Enter a follow-up note when follow-up is required."); return;
+      const message = "Enter a follow-up note when follow-up is required.";
+      setFormError(message); setFieldErrors({ followUpNote: message }); return;
     }
     if (draft.followUpNote.length > 1000 || draft.attachmentNotes.length > 500) {
       setFormError("Follow-up note must be at most 1,000 characters and attachment notes at most 500."); return;
@@ -154,13 +165,22 @@ export default function ActionsTakenPanel({ ticketId, userId, userRole }: Props)
     }
   };
 
-  const field = (key: keyof Draft, value: string | boolean) => setDraft((previous) => ({ ...previous, [key]: value }));
+  const field = (key: keyof Draft, value: string | boolean) => {
+    setDraft((previous) => ({ ...previous, [key]: value }));
+    if (fieldErrors[key] && formError === fieldErrors[key]) setFormError("");
+    setFieldErrors((previous) => {
+      if (!previous[key]) return previous;
+      const next = { ...previous };
+      delete next[key];
+      return next;
+    });
+  };
 
   return (
     <section aria-labelledby="actions-taken-heading" data-testid="actions-taken-panel">
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h2 id="actions-taken-heading" className="h5 mb-0">Actions Taken <span className="custom-tab-badge">{actions.length}</span></h2>
-        {canEdit && !editing && actions.length > 0 && <button type="button" className="btn btn-zen-green btn-sm" onClick={() => { setDraft(emptyDraft()); setFormOpen(true); setFormError(""); setNotice(""); }}>Record Action</button>}
+        {canEdit && !editing && actions.length > 0 && <button type="button" className="btn btn-zen-green btn-sm" onClick={() => { setDraft(emptyDraft()); setFormOpen(true); setFormError(""); setFieldErrors({}); setNotice(""); }}>Record Action</button>}
       </div>
 
       {notice && <div className="alert alert-success py-2" role="status">{notice}</div>}
@@ -184,15 +204,15 @@ export default function ActionsTakenPanel({ ticketId, userId, userRole }: Props)
         </article>)}
       </div>}
 
-      {canEdit && (editing || formOpen || (!loading && !loadError && actions.length === 0)) && <form onSubmit={submit} className="p-3 bg-light rounded-3 border" noValidate>
-        <h3 className="h6 mb-3">{editing ? "Edit Action Taken" : "Record Action Taken"}</h3>
-        {formError && <div className="alert alert-danger py-2" role="alert" data-testid="action-form-error">{formError}</div>}
+      {canEdit && (editing || formOpen || (!loading && !loadError && actions.length === 0)) && <form onSubmit={submit} className="p-3 bg-light rounded-3 border" noValidate aria-labelledby="actions-taken-form-heading">
+        <h3 id="actions-taken-form-heading" className="h6 mb-3">{editing ? "Edit Action Taken" : "Record Action Taken"}</h3>
+        {formError && <div className="alert alert-danger py-2" role="alert" data-testid="action-form-error">{Object.keys(fieldErrors).length ? "Please correct the highlighted field below." : formError}</div>}
         <div className="row g-3">
-          <div className="col-12 col-md-6"><label className="form-label" htmlFor="actionDateTime">Action date and time</label><input id="actionDateTime" type="datetime-local" className="form-control" value={draft.actionDateTime} onChange={(e) => field("actionDateTime", e.target.value)} required /></div>
-          <div className="col-12"><label className="form-label" htmlFor="actionDescription">Action description</label><textarea id="actionDescription" className="form-control" rows={3} maxLength={2000} value={draft.actionDescription} onChange={(e) => field("actionDescription", e.target.value)} required /><div className="form-text">Up to 2,000 characters.</div></div>
-          <div className="col-12"><label className="form-label" htmlFor="actionResult">Result</label><textarea id="actionResult" className="form-control" rows={2} maxLength={1000} value={draft.result} onChange={(e) => field("result", e.target.value)} required /></div>
+          <div className="col-12 col-md-6"><label className="form-label" htmlFor="actionDateTime">Action date and time</label><input id="actionDateTime" type="datetime-local" className="form-control" value={draft.actionDateTime} onChange={(e) => field("actionDateTime", e.target.value)} required aria-invalid={fieldErrors.actionDateTime ? "true" : undefined} aria-describedby={fieldErrors.actionDateTime ? "actionDateTime-error" : undefined} />{fieldErrors.actionDateTime && <div id="actionDateTime-error" className="text-danger small mt-1">{fieldErrors.actionDateTime}</div>}</div>
+          <div className="col-12"><label className="form-label" htmlFor="actionDescription">Action description</label><textarea id="actionDescription" className="form-control" rows={3} maxLength={2000} value={draft.actionDescription} onChange={(e) => field("actionDescription", e.target.value)} required aria-invalid={fieldErrors.actionDescription ? "true" : undefined} aria-describedby={fieldErrors.actionDescription ? "actionDescription-error actionDescription-help" : "actionDescription-help"} />{fieldErrors.actionDescription && <div id="actionDescription-error" className="text-danger small mt-1">{fieldErrors.actionDescription}</div>}<div id="actionDescription-help" className="form-text">Up to 2,000 characters.</div></div>
+          <div className="col-12"><label className="form-label" htmlFor="actionResult">Result</label><textarea id="actionResult" className="form-control" rows={2} maxLength={1000} value={draft.result} onChange={(e) => field("result", e.target.value)} required aria-invalid={fieldErrors.result ? "true" : undefined} aria-describedby={fieldErrors.result ? "actionResult-error" : undefined} />{fieldErrors.result && <div id="actionResult-error" className="text-danger small mt-1">{fieldErrors.result}</div>}</div>
           <div className="col-12"><div className="form-check"><input id="followUpRequired" type="checkbox" className="form-check-input" checked={draft.followUpRequired} onChange={(e) => field("followUpRequired", e.target.checked)} /><label className="form-check-label" htmlFor="followUpRequired">Follow-up required</label></div></div>
-          {draft.followUpRequired && <div className="col-12"><label className="form-label" htmlFor="followUpNote">Follow-up note <span className="text-danger">(required)</span></label><textarea id="followUpNote" className="form-control" rows={2} maxLength={1000} value={draft.followUpNote} onChange={(e) => field("followUpNote", e.target.value)} aria-required="true" />{formError.includes("follow-up note") && <div className="text-danger small mt-1">A follow-up note is required.</div>}</div>}
+          {draft.followUpRequired && <div className="col-12"><label className="form-label" htmlFor="followUpNote">Follow-up note <span className="text-danger">(required)</span></label><textarea id="followUpNote" className="form-control" rows={2} maxLength={1000} value={draft.followUpNote} onChange={(e) => field("followUpNote", e.target.value)} aria-required="true" aria-invalid={fieldErrors.followUpNote ? "true" : undefined} aria-describedby={fieldErrors.followUpNote ? "followUpNote-error" : undefined} />{fieldErrors.followUpNote && <div id="followUpNote-error" className="text-danger small mt-1">{fieldErrors.followUpNote}</div>}</div>}
           <div className="col-12"><label className="form-label" htmlFor="attachmentNotes">Attachment notes <span className="text-muted">(optional)</span></label><textarea id="attachmentNotes" className="form-control" rows={2} maxLength={500} value={draft.attachmentNotes} onChange={(e) => field("attachmentNotes", e.target.value)} /></div>
         </div>
         <div className="d-flex flex-wrap justify-content-end gap-2 mt-3">

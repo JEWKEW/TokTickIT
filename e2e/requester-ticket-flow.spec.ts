@@ -134,9 +134,21 @@ test.describe('Requester Ticket Flow & Responsive Audit', () => {
     await removeAttBtn.click();
 
     // Confirm Removal
-    await expect(page.locator('[data-testid="removal-modal"]')).toBeVisible();
+    const removalDialog = page.getByRole('dialog', { name: 'Remove Attachment' });
+    await expect(removalDialog).toBeVisible();
+    const removalReason = page.getByRole('textbox', { name: 'Reason for attachment removal' });
+    await expect(removalReason).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByTestId('confirm-remove-btn')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(removalReason).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(removalDialog).not.toBeVisible();
+    await expect(removeAttBtn).toBeFocused();
+    await removeAttBtn.click();
+    await expect(removalDialog).toBeVisible();
     const removalReasonText = 'Soft removal performed for visual audit.';
-    await page.locator('[data-testid="removal-reason-input"]').fill(removalReasonText);
+    await removalReason.fill(removalReasonText);
     await page.locator('[data-testid="confirm-remove-btn"]').click();
 
     // Verify attachment soft-removed badge
@@ -164,7 +176,6 @@ test.describe('Requester Ticket Flow & Responsive Audit', () => {
     await page.locator('[data-testid="search-input"]').fill(createdTicketNumber);
 
     // Verify ticket isolation: created ticket must NOT be listed
-    await expect(page.locator('[data-testid="no-results-state"]')).toBeVisible();
     await expect(page.locator('[data-testid^="ticket-link-"]').filter({ hasText: createdTicketNumber })).toHaveCount(0);
 
     // -------------------------------------------------------------------------

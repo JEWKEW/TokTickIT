@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoClippedOrOverlappingControls } from "./responsive-a11y-helpers.js";
 
 async function signIn(page: import("@playwright/test").Page, email: string) {
   await page.goto("/");
@@ -54,10 +55,28 @@ test("staff records and edits an Action Taken; its Requester sees it read-only",
   await signIn(page, "michael.brown@toktickit.com");
   await openStaffTicket(page, ticketNumber);
   await expect(page.locator('[data-testid="ticket-detail-view"]')).toBeVisible();
+  await page.getByRole("button", { name: /Internal Notes/ }).click();
+  const privateNotes = page.locator('[data-testid="internal-notes-section"]');
+  await expect(privateNotes.locator(".alert-warning")).toContainText("strictly private");
+  await page.getByRole("button", { name: /Public Comments/ }).click();
+  await expect(page.getByRole("form", { name: "Add public comment" })).toBeVisible();
   await page.getByRole("button", { name: /Actions Taken/ }).click();
   await expect(page.getByRole("heading", { name: "Actions Taken" })).toBeVisible();
 
+  for (const width of [1280, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+    expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
+    await expectNoClippedOrOverlappingControls(page);
+    await expect(page.locator('[data-testid="actions-taken-panel"]')).toBeVisible();
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   if (!(await page.getByLabel("Action description").isVisible())) await page.getByRole("button", { name: "Record Action" }).click();
+  await expect(page.getByRole("form", { name: "Record Action Taken" })).toBeVisible();
+  await page.getByLabel("Action description").focus();
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => (document.activeElement as HTMLElement).matches(":focus-visible"))).toBeTruthy();
   await page.getByLabel("Action description").fill(unique);
   await page.getByLabel("Result").fill("Verified from the integrated browser flow");
   await page.locator('[data-testid="actions-taken-panel"] form button[type="submit"]').click();
@@ -93,7 +112,8 @@ test("follow-up validation and stale edit feedback work end to end", async ({ pa
   await page.getByLabel("Result").fill("Needs another check");
   await page.getByLabel("Follow-up required").check();
   await page.locator('[data-testid="actions-taken-panel"] form button[type="submit"]').click();
-  await expect(page.getByText("Enter a follow-up note when follow-up is required.")).toBeVisible();
+  await expect(page.getByTestId("action-form-error")).toContainText("Please correct the highlighted field below.");
+  await expect(page.locator("#followUpNote-error")).toHaveText("Enter a follow-up note when follow-up is required.");
   await page.getByLabel(/Follow-up note/).fill("Retry after scheduled maintenance");
   await page.locator('[data-testid="actions-taken-panel"] form button[type="submit"]').click();
 

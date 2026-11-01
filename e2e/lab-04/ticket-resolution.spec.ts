@@ -1,4 +1,5 @@
 import { expect, test, Page } from "@playwright/test";
+import { expectNoClippedOrOverlappingControls } from "./responsive-a11y-helpers.js";
 
 async function signIn(page: Page, email: string) {
   await page.goto("/");
@@ -52,6 +53,13 @@ test("Requester indication stays advisory while IT Staff performs formal status 
   const ticketNumber = await createRequesterTicket(page);
   await openRequesterTicket(page, ticketNumber);
   await expect(page.locator('[data-testid="ticket-detail-view"]')).toBeVisible();
+  for (const width of [1280, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+    expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
+    await expectNoClippedOrOverlappingControls(page);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.locator('[data-testid="status-select"]')).toHaveCount(0);
 
   const indicateButton = page.locator('[data-testid="indicate-resolved-btn"]');
@@ -71,6 +79,13 @@ test("Requester indication stays advisory while IT Staff performs formal status 
   await signIn(page, "michael.brown@toktickit.com");
   await openStaffTicket(page, ticketNumber);
   const status = page.locator('[data-testid="status-select"]');
+  for (const width of [1280, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const dimensions = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+    expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport);
+    await expectNoClippedOrOverlappingControls(page);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
   await expect(status).toBeVisible();
   expect(await status.inputValue()).toBe("New");
   const currentStatus = await status.inputValue();

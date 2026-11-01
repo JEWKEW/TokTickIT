@@ -1,4 +1,5 @@
 import { expect, test, Page } from "@playwright/test";
+import { expectNoClippedOrOverlappingControls } from "./responsive-a11y-helpers.js";
 
 async function signIn(page: Page, email: string) {
   await page.goto("/");
@@ -67,6 +68,7 @@ test("staff dashboard fits desktop, tablet, and mobile widths", async ({ page })
     await page.setViewportSize({ width, height: 900 });
     const dimensions = await page.evaluate(() => ({ body: document.body.scrollWidth, viewport: document.documentElement.clientWidth }));
     expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+    await expectNoClippedOrOverlappingControls(page);
   }
 });
 
@@ -77,5 +79,29 @@ test("Requester dashboard has no horizontal overflow at desktop, tablet, or mobi
     await page.setViewportSize({ width, height: 900 });
     const dimensions = await page.evaluate(() => ({ body: document.body.scrollWidth, viewport: document.documentElement.clientWidth }));
     expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+    await expectNoClippedOrOverlappingControls(page);
   }
+});
+
+test("dashboard controls have semantic names, text status cues, and keyboard-visible focus", async ({ page }) => {
+  await signIn(page, "michael.brown@toktickit.com");
+  await expect(page.getByRole("heading", { level: 1, name: "IT Staff Operational Dashboard" })).toBeVisible();
+  await expect(page.locator('[data-testid="nav-staff-dashboard-btn"]')).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-testid="staff-metric-new"]')).toHaveAccessibleName(/View \d+ New tickets/);
+  await expect(page.locator('[data-testid="staff-status-new"]')).toContainText("New");
+  await expect(page.locator('[data-testid="staff-status-new"]')).toContainText(/\d+/);
+
+  await page.locator('[data-testid="staff-metric-new"]').focus();
+  await page.keyboard.press("Tab");
+  const focus = await page.evaluate(() => {
+    const element = document.activeElement as HTMLElement;
+    return {
+      keyboardVisible: element.matches(":focus-visible"),
+      outlineWidth: getComputedStyle(element).outlineWidth,
+      outlineColor: getComputedStyle(element).outlineColor,
+    };
+  });
+  expect(focus.keyboardVisible).toBeTruthy();
+  expect(focus.outlineWidth).toBe("3px");
+  expect(focus.outlineColor).toBe("rgb(0, 96, 57)");
 });
