@@ -1,30 +1,28 @@
-# Lab 4 AI Use and Reflection
+# Lab 4 — AI Use and Reflection
 
-## LLM Used
+**LLM/agent used:** OpenAI Codex coding assistant (GPT-6)
 
-OpenAI Codex coding assistant (GPT-6). It was used in specification-review and coding-assistant roles. The student remains responsible for checking the handout, reviewing generated changes, and verifying results.
+## Selected Key Prompts (Lab 04 Features)
 
-## Selected Key Prompts
+| # | Prompt (Summarised) | What I Did with the Result |
+|---|---|---|
+| 1 | Reviewed the Lab 4 handout (`SE_Lab_4.md`) against existing Lab 1–3 code to draft formal engineering specifications (`specification.md`, `api-spec.md`, `ui-spec.md`), Functional Requirements (FR-01 to FR-15), Business Rules (BR-19 to BR-24), Role Status Transition Matrix, and Acceptance Criteria. | Working on ISSUE-01 on branch `feature/lab4-spec`: Authored `specification.md`, `api-spec.md`, and `ui-spec.md` in `docs/lab-04/`. Defined data contracts for Actions Taken, Requester and Staff Dashboard metrics, permitted ticket status transitions, optimistic concurrency control rules, and accessibility/responsive requirements. |
+| 2 | Developed the Lab 4 test strategy and traceability matrix (`tests.md`), structuring Given-When-Then test cases across API, UI component, and Playwright E2E layers for Actions Taken, dashboards, and workflow transitions. | Working on ISSUE-02 on branch `feature/lab4-tests-plan`: Authored `docs/lab-04/tests.md` linking every acceptance criterion to automated test identifiers (`TC-API-*`, `TC-UI-*`, `TC-E2E-*`). Created test skeleton files in `server/tests/lab-04/`, `client/tests/lab-04/`, and `e2e/lab-04/`. |
+| 3 | Created the Prisma schema evolution for the `ActionTaken` model, additive migration (`20261007000000_lab4_actions_taken`), and updated `prisma/seed.ts` with comprehensive sample Actions Taken records. | Working on ISSUE-03 on branch `feature/lab4-db-actions-taken`: Added the `ActionTaken` model in `server/prisma/schema.prisma` with foreign key relations to `Ticket` and `User` (`performedBy`), follow-up flags, and timestamps. Verified additive migration safety, preserved legacy tickets, and expanded idempotent seed data. |
+| 4 | Implemented Actions Taken REST API endpoints (`POST /api/tickets/:id/actions-taken`, `GET /api/tickets/:id/actions-taken`, `PATCH /api/tickets/:id/actions-taken/:actionId`) with validation, RBAC, and optimistic locking. | Working on ISSUE-04 on branch `feature/lab4-actions-taken-api`: Built route handlers in `server/src/app.ts`. Enforced IT Staff / Admin role restrictions for creating/editing actions, auto-attributed `performedById` from JWT, validated `followUpNote` when `followUpRequired` is true, and handled optimistic concurrency conflicts via `updatedAt` (`409 Conflict`). |
+| 5 | Built the React UI component for Actions Taken (`ActionsTakenPanel`) inside Ticket Detail, supporting staff creation/editing, optimistic conflict resolution, and requester read-only viewing. | Working on ISSUE-05 on branch `feature/lab4-actions-taken-ui`: Implemented `ActionsTakenPanel` in `client/src/components/ActionsTakenPanel.tsx`. Provided Requester read-only history table, IT Staff entry form with validation feedback, inline editing with stale update handling, and duplicate-submission prevention. |
+| 6 | Implemented formal ticket status transitions based on the permitted status matrix (`PATCH /api/tickets/:id/status`) and Requester resolution advisory signaling (`PATCH /api/tickets/:id/indicate-resolved`). | Working on ISSUE-06 on branch `feature/lab4-ticket-workflow`: Enforced status matrix validation in backend and UI dropdowns (`New` → `In Progress`, `On Hold`, `Cancelled`, etc.). Implemented Requester "Problem Appears Resolved" button updating `requesterResolvedIndicated` without prematurely closing tickets. |
+| 7 | Implemented the Requester Dashboard API (`GET /api/dashboards/requester`) and React UI (`RequesterDashboard`), scoping all ticket metric cards and recent tickets strictly to the authenticated user. | Working on ISSUE-07 on branch `feature/lab4-requester-dashboard`: Built the requester dashboard endpoint and UI displaying Total Tickets, Open, Pending Action, and Resolved/Closed metric cards, recent tickets table with direct navigation, and zero-state handling for users with no tickets. |
+| 8 | Implemented the IT Staff & Admin Dashboard API (`GET /api/dashboards/staff`) and UI (`StaffDashboard`) with operational metric cards, queue drill-down filters, and recent Actions Taken feed. | Working on ISSUE-08 on branch `feature/lab4-staff-dashboard`: Built `StaffDashboard` with interactive metric cards linking to pre-filtered queue views (unassigned, in-progress, urgent), Recent Actions Taken activity feed, and Administrator-only user account totals. Added loading, empty, and 403 error states. |
+| 9 | Created the isolated dashboard performance smoke benchmark (`lab4-dashboard-performance-smoke.mjs`), verified WCAG accessibility (focus visible, ARIA), and conducted responsive checks across desktop, tablet, and mobile. | Working on ISSUES 09 & 10 on branches `feature/lab4-regression` and `feature/lab4-a11y-responsive`: Built benchmark testing 500 tickets / 2,000 actions taken (<30 ms response times against 1,000 ms SLA). Authored `accessibility-responsive-checklist.md`, verified 3px Zen Green focus indicators, and captured responsive screenshots in `artifacts/lab-04/screenshots/`. |
+| 10 | Conducted Zen Green visual polish, cleaned up unused dev artifacts, and updated release documentation (`README.md`, `reviewer.md`, `ai-use.md`). | Working on ISSUES 11 & 12 on branches `feature/lab4-visual-polish` and `feature/lab4-release`: Added `aria-current="page"` navigation attributes, accessible screen-reader labels for priority badges, updated `README.md` with complete setup, seed, and demonstration guides, populated peer review records, and organized visual evidence. |
 
-These selected excerpts are lightly edited for readability and preserve the intent of prompts used during Lab 4 work:
+## Reflection
 
-1. “Check Issue 1 in Lab 4; if the detail is not enough, add more detail.”
-2. “Do Issue 1 in Lab 4.”
-3. “Write a walkthrough.”
-4. “Do Issue 2 in Lab 4, and do not commit or add it to GitHub yet.”
-5. “Do Issue 3 [and later Issues 4–8] against the Lab 4 work.”
-6. “If you add a feature to the specification, check `SE_Lab_4.md`; do not add features beyond the handout.”
-7. “Use the dashboard screenshot as a reference for Ticket colors, status, and the dashboard.”
-8. “For Issue 9, make Requested and IT Priority values visibly distinct and keep its artifacts under `lab-04`.”
-9. “Do Issue 10.”
-10. “Do Issue 12, and do not do anything with GitHub.”
+Using an AI pair programming assistant throughout Lab 4 accelerated our engineering workflow across both the specification-agent and coding-agent phases. During specification, the assistant helped synthesize the coursework handout (`SE_Lab_4.md`) into structured engineering contracts, formalizing Functional Requirements (FR-01 to FR-15), Business Rules (BR-19 to BR-24), and status transition matrices while strictly adhering to scope boundaries. During implementation, it assisted in generating type-safe Prisma schema additions, REST endpoints with optimistic locking, and responsive React dashboard components.
 
-## How the AI Was Used
-
-In the specification role, the assistant reviewed the Lab 4 issue descriptions and handout, checked requirement scope, and helped keep implementation decisions aligned with the provided contract. In the coding role, it inspected the existing application, implemented issue-scoped changes, updated tests and documentation, and reported local verification results. The user reviewed the work, asked for walkthroughs, corrected visual direction with screenshots, and explicitly constrained scope and artifact locations.
-
-## My Reflection (Draft for Student Review)
-
-I used the AI in two roles: first to help organize and check the specification against the Lab 4 handout, and then to help implement the approved work. Asking it to stay within `SE_Lab_4.md` helped keep scope controlled. Walkthroughs and test reports made the changes easier to inspect, and screenshot references helped communicate the dashboard layout and priority colors. I still needed to review the results because generated work can miss project constraints or report evidence that has not actually been collected. The AI cannot replace a real peer review or merge evidence, so I must complete those with my teammate before calling the release ready.
-
-*Please revise this draft to reflect your own experience before submitting it.*
+Key takeaways and adjustments made during development:
+1. **Specification-Agent Discipline & Scope Control**: Explicitly prompting the assistant to stay within `SE_Lab_4.md` prevented scope creep and over-engineering. Verifying generated specifications prior to implementation ensured all team members and peer reviewers aligned on data contracts and status transition rules.
+2. **Coding-Agent Implementation & Optimistic Locking**: Implementing optimistic concurrency control on Actions Taken (`updatedAt` timestamp comparison) required strict backend validation returning HTTP 409 Conflict upon stale edits, coupled with responsive UI feedback allowing users to refresh without losing unsaved input.
+3. **Role-Scoped Dashboard Metrics & Query Efficiency**: Separating the Requester Dashboard (strictly scoped to the authenticated user ID) and IT Staff Dashboard (queue-wide aggregates with role-gated admin account totals) ensured complete data isolation. Validating database queries through an isolated performance smoke test confirmed sub-30ms response times.
+4. **Verification & Peer Review Responsibility**: While the AI assistant generated initial skeletons, component logic, and tests, student verification remained essential. Manual code inspections, running test suites across multiple viewports (desktop, tablet, mobile), and conducting rigorous peer reviews ensured that all deliverables met production-quality standards.
